@@ -1,0 +1,605 @@
+---
+title: "Mbita Schisto map"
+author: "Ben Arnold"
+date: ""
+output: 
+  html_document:
+    highlight: haddock
+    theme: default
+    code_folding: hide
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+
+# Preamble
+```{r preamble}
+library(here)
+here()
+#--------------------------------
+# source the configuration file
+#--------------------------------
+source(here("R/mbita-schisto-Config.R"))
+```
+
+
+# Load and process data
+```{r load data,message=FALSE,warning=FALSE}
+#---------------------------
+# mbita PSAC data
+#---------------------------
+d <- readRDS(here("data","mbita_psac.rds") )
+d <- d %>%
+  dplyr::select(year,vid,lon,lat,alt,pid,agey,sex,sea,sm_epg)
+
+#---------------------------
+# identify seropositive by
+# SEA using ROC cutoff
+#---------------------------
+d <- d %>%
+  mutate(
+    sea_pos = ifelse(sea>965,1,0),
+    kk_pos = ifelse(sm_epg>0,1,0)
+  )
+
+
+#---------------------------
+# register survey data
+# as an sf object
+#---------------------------
+dsf <- d %>% 
+  group_by(vid) %>%
+  dplyr::select(vid,lon,lat) %>%
+  slice(1) %>%
+  st_as_sf(coords = c("lon","lat")) %>%
+  st_set_crs(4326)
+
+#---------------------------
+# Identify the convex hull
+# around villages and make
+# a polygon
+#---------------------------
+xycoords <- as.matrix(d[,c('lon','lat')])
+xychull <- xycoords[chull(xycoords),]
+xypoly <- st_polygon(list(rbind(xychull,xychull[1,]))) %>%
+  st_sfc() %>% st_sf() %>% st_set_crs(4326)
+
+#---------------------------
+# identify a rectangle around
+# the villages 
+# this is used as a bounding
+# box for all mapping and
+# predictions below
+#---------------------------
+lat1 <- 34.55
+lat2 <- 34.00
+lon1 <- -0.55
+lon2 <- -0.3207
+
+xysquare <- rbind( c(lat1,lon1),
+                   c(lat1,lon2),
+                   c(lat2,lon2),
+                   c(lat2,lon1)
+                   )
+
+xysqpoly <- st_polygon(list(rbind(xysquare,xysquare[1,]))) %>%
+  st_sfc() %>% st_sf() %>% st_set_crs(4326)
+
+#---------------------------
+# Calculate the approximate
+# area of the study region
+#---------------------------
+studyarea <- st_area(xypoly)
+studyarea # study area in m2
+studyarea/(1000^2) # study area in km2
+
+#---------------------------
+# Retrieve elevation data
+#
+# if data are not already
+# downloaded, the raster 
+# package will download them
+# into the /data directory
+#---------------------------
+library(raster)
+dxy <- st_coordinates(dsf)
+elev <- raster::getData("alt", country="Kenya",path=here("data"))
+elev2 <- crop(elev,xysqpoly)
+
+#---------------------------
+# Retrieve WorldClim data
+# average monthly minimum temp
+# average monhtly precip
+#
+# if data are not already
+# downloaded, the raster 
+# package will download them
+# into the /data directory
+#---------------------------
+tmin <- raster::getData('worldclim', var='tmin', res=0.5, lon=mean(dxy[,1]), lat=mean(dxy[,2]), path=here("data"))
+tmin2 <- mean(crop(tmin, elev2))
+
+prec <- raster::getData('worldclim', var='prec', res=0.5, lon=mean(dxy[,1]), lat=mean(dxy[,2]), path=here("data"))
+prec2 <- mean(crop(prec, elev2))
+
+#---------------------------
+# retreive extent of
+# lake Victoria
+# computed from the global
+# surface water dataset
+# with a raster->polygon
+# transformation in Google EE
+#---------------------------
+lvictoria <- sf::st_read(here("data","mbita_gswpoly.geojson"),crs=4326)
+# there are 31 polygons in the feature collection
+# but there is really just one single large polygon that contains the main lake
+# filter to polygons with more than 500 pixels to identify this feature
+lvictoria <- lvictoria %>%
+  filter(count>500)
+
+#---------------------------
+# Create an interpolation
+# grid of points over the
+# study region rectangle
+# use the feature rasters
+# as the base
+#
+# This grid is used to
+# make model predictions
+# later in the analysis (below)
+#---------------------------
+interp_grid <- raster::aggregate(elev2, 1)
+interp_grid <- data.frame(lon = coordinates(interp_grid)[,1], 
+                          lat = coordinates(interp_grid)[,2],
+                          elev=interp_grid[],
+                          tmin=aggregate(tmin2, 1)[],
+                          prec=aggregate(prec2, 1)[]
+                          )
+
+# sf object of the interpolation grid
+gridsf <- st_as_sf(interp_grid,coords = c("lon","lat")) %>%
+  st_set_crs(4326) %>%
+  st_intersection(xysqpoly) 
+
+# calc the minimum dist from each point to lake victoria
+dist_victoria <- apply(st_distance(gridsf,lvictoria),1,min)
+gridsf <- gridsf %>% 
+  mutate(dist_victoria = dist_victoria)
+
+# save the interpolation grid as a data.frame for modeling
+gridxy <- st_coordinates(gridsf)
+pred_grid <- data.frame(gridsf,lon=gridxy[,1],lat=gridxy[,2]) %>% 
+  dplyr::select(-geometry)
+
+
+#---------------------------
+# join geospatial layers
+# to the village data
+#---------------------------
+dsf$elev <- raster::extract(elev2,dxy)
+dsf$tmin <- raster::extract(tmin2,dxy)
+dsf$prec <- raster::extract(prec2,dxy)
+
+# estimate distance to lake victoria
+vil_dist_victoria <- st_distance(dsf,lvictoria)
+dsf$dist_victoria <- vil_dist_victoria
+
+#---------------------------
+# collapse to counts at the
+# village level, by year
+# calculate prevalence
+# by SEA and Kato-Katz
+#
+# also summarize by village
+# over all years
+#---------------------------
+dvil <- d %>%
+  group_by(vid,year) %>%
+  summarize(sea_n = sum(sea_pos,na.rm=T),
+            sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
+            kk_n = sum(kk_pos,na.rm=T),
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            lon = mean(lon),
+            lat = mean(lat)
+            ) %>%
+  mutate(sea_prev = sea_n/sea_N,
+         kk_prev = kk_n/kk_N,
+         yearf = as.factor(year))
+
+dvil2 <- d %>%
+  group_by(vid) %>%
+  summarize(sea_n = sum(sea_pos,na.rm=T),
+            sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
+            kk_n = sum(kk_pos,na.rm=T),
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            lon = mean(lon),
+            lat = mean(lat)
+            ) %>%
+  mutate(sea_prev = sea_n/sea_N,
+         kk_prev = kk_n/kk_N)
+
+#---------------------------
+# merge on the geospatial 
+# layers
+#---------------------------
+dvil <- left_join(dvil,dsf,by="vid")
+dvil2 <- left_join(dvil2,dsf,by="vid")
+
+
+#---------------------------
+# create a long version 
+# of the collapsed data
+# that has separate rows
+# for SEA and KK
+# (a convenience for plotting)
+#---------------------------
+dvil2_sea <- dvil2 %>%
+  dplyr::select(vid,npos=sea_n,nmeas=sea_N,prev=sea_prev,lon,lat,geometry,elev,tmin,prec,dist_victoria) %>%
+  mutate(measure = "SEA seroprevalence")
+
+dvil2_kk <- dvil2 %>%
+  dplyr::select(vid,npos=kk_n,nmeas=kk_N,prev=kk_prev,lon,lat,geometry,elev,tmin,prec,dist_victoria) %>%
+  mutate(measure = "Kato-Katz prevalence")
+
+dvil2_long <- bind_rows(dvil2_sea,dvil2_kk) %>%
+  mutate(measure = factor(measure))
+
+
+
+```
+
+
+# Maps
+
+The predictions below are prevalence. In addition to a village's location, the model uses information about elevation (SRTM 90), precipitation (WorldClim average), temperature (WorldClim min), and distance to Lake Victoria (global surface water layer). The model uses a low rank Gaussian process to interpolate between locations.
+
+
+## SEA seroprevalence
+
+### SEA geospatial model fit
+```{r model sea seroprevalence}
+# gaussian process / spline model fit
+# village-level random effects
+# (use of by=dummy enables us to zero-out random effects in predictions)
+dvil3 <- dvil %>%
+  mutate(dummy = 1,
+         vidf = factor(vid,levels=unique(dvil$vid))
+         )
+
+
+fit_sea <- gam(cbind(sea_n,sea_N-sea_n) ~ s(lat,lon, k=-1,bs="gp") + s(elev,k=3) + s(dist_victoria,k=3) + s(tmin,k=3) + s(prec,k=3) + yearf + s(vidf,bs="re",by=dummy), 
+                   family="binomial",
+                   data=dvil3,
+                   method="REML",
+                   select=TRUE)
+
+```
+
+### SEA geospatial model predictions
+```{r predict sea seroprevalence}
+# model predictions at village points
+dvil3$pred_sea <- predict(fit_sea,type="response")
+
+# model predictions at interpolation grid, separately for each year
+pred_grid2012 <- pred_grid %>% mutate(yearf=factor("2012",levels=levels(dvil$yearf)),vidf="1",dummy=0)
+pred_grid2013 <- pred_grid %>% mutate(yearf=factor("2013",levels=levels(dvil$yearf)),vidf="1",dummy=0)
+pred_grid2014 <- pred_grid %>% mutate(yearf=factor("2014",levels=levels(dvil$yearf)),vidf="1",dummy=0)
+
+pred_sea2012 <- predict(fit_sea,newdata=pred_grid2012,type="response",se=TRUE)
+pred_sea2013 <- predict(fit_sea,newdata=pred_grid2013,type="response",se=TRUE)
+pred_sea2014 <- predict(fit_sea,newdata=pred_grid2014,type="response",se=TRUE)
+
+rast_sea2012 <- SpatialPixelsDataFrame(points=pred_grid2012[c("lon","lat")],data=data.frame(fit=pred_sea2012$fit*100,se=pred_sea2012$se.fit),proj4string=CRS("+init=epsg:3857"))
+crs(rast_sea2012) <- sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+rast_sea2013 <- SpatialPixelsDataFrame(points=pred_grid2013[c("lon","lat")],data=data.frame(fit=pred_sea2013$fit*100,se=pred_sea2013$se.fit),proj4string=CRS("+init=epsg:3857"))
+crs(rast_sea2013) <- sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+rast_sea2014 <- SpatialPixelsDataFrame(points=pred_grid2014[c("lon","lat")],data=data.frame(fit=pred_sea2014$fit*100,se=pred_sea2014$se.fit),proj4string=CRS("+init=epsg:3857"))
+crs(rast_sea2014) <- sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+```
+
+
+## Kato-Katz prevalence
+
+### KK geospatial model fit
+```{r model kato-katz prevalence}
+# gaussian process / spline model fit
+# village-level random effects 
+# (use of by=dummy enables us to zero-out random effects in predictions)
+
+fit_kk <- gam(cbind(kk_n,kk_N-kk_n) ~ s(lat,lon, k=-1,bs="gp") + s(elev,k=3) + s(dist_victoria,k=3) + s(tmin,k=3) + s(prec,k=3) + yearf + s(vidf,bs="re",by=dummy), 
+                   family="binomial",
+                   data=dvil3,
+                   method="REML",
+                   select=TRUE)
+
+```
+
+### KK geospatial model predictions
+```{r predict kato-katz prevalence}
+# model predictions at village points
+dvil3$pred_kk <- predict(fit_kk,type="response")
+
+# model predictions at interpolation grid, separately for each year
+pred_kk2012 <- predict(fit_kk,newdata=pred_grid2012,type="response",se=TRUE)
+pred_kk2013 <- predict(fit_kk,newdata=pred_grid2013,type="response",se=TRUE)
+pred_kk2014 <- predict(fit_kk,newdata=pred_grid2014,type="response",se=TRUE)
+
+rast_kk2012 <- SpatialPixelsDataFrame(points=pred_grid2012[c("lon","lat")],data=data.frame(fit=pred_kk2012$fit*100,se=pred_kk2012$se.fit),proj4string=CRS("+init=epsg:3857"))
+crs(rast_kk2012) <- sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+rast_kk2013 <- SpatialPixelsDataFrame(points=pred_grid2013[c("lon","lat")],data=data.frame(fit=pred_kk2013$fit*100,se=pred_kk2013$se.fit),proj4string=CRS("+init=epsg:3857"))
+crs(rast_kk2013) <- sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+rast_kk2014 <- SpatialPixelsDataFrame(points=pred_grid2014[c("lon","lat")],data=data.frame(fit=pred_kk2014$fit*100,se=pred_kk2014$se.fit),proj4string=CRS("+init=epsg:3857"))
+crs(rast_kk2014) <- sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+```
+
+## Overview map
+```{r overview map}
+xlon <- mean(lat1,lat2)
+ylat <- mean(lon1,lon2)
+map_overview <- leaflet() %>%
+  addProviderTiles("CartoDB.Positron",options=providerTileOptions(opacity=1)) %>%
+  setView(lng = xlon, lat = ylat, zoom = 6) %>%
+  addRectangles(
+    lng1=33.8969, lat1=-0.3207,
+    lng2=34.5747, lat2=-0.5905,
+    fillColor = "transparent",weight=2,color="black"
+  ) %>%
+  addScaleBar(position="bottomright",options=scaleBarOptions(imperial = FALSE))
+
+
+map_overview
+
+```
+
+## Points map (SEA + KK)
+```{r map village overview and prevalence}
+# Load a Stamen background
+# use bounding box defined earlier in notebook
+# to load tiles
+# sbase <- get_stamenmap(bbox=c(left=lat2,
+#                               right=lat1,
+#                               bottom=lon1,
+#                               top=lon2),
+#                        zoom = 11,
+#                        maptype = "toner-lite")
+# or use Google terrain [note: requires Google API key... with register_google()]
+gterrain <- get_googlemap(center=c((lat1+lat2)/2,(lon1+lon2)/2),
+                       zoom = 11,
+                       maptype = "terrain",color="bw")
+
+map_points <- ggmap(gterrain) +
+  geom_point(data=dvil2_long,aes(x=lon,y=lat,color=prev*100))+
+  facet_grid(measure~.)+
+  scale_color_viridis_c(begin=0,end=0.97,guide_colorbar(title="Prevalence (%)")) +
+  scale_y_continuous(limits=c(lon1, lon2))+
+  labs(x="longitude",y="latitude")+
+  theme_minimal()+
+  theme(legend.position = "right")
+
+map_points
+
+```
+
+##  Predicted surface, SEA
+```{r map surface SEA}
+
+# separate raster layers for prevalence and SE
+rast_seap <- raster::raster(rast_sea2014,layer=1)
+rast_sease <- raster::raster(rast_sea2014,layer=2)
+
+dvil3_2014 <- dvil3 %>%
+  filter(year==2014)
+
+
+#---------------------------
+# Buffer around Lake Victoria, 1500m
+# doesn't really work
+#---------------------------
+# lvictoria_1500m  <- lvictoria %>%
+#   st_boundary() %>%
+#   st_transform(crs="+proj=utm +zone=37 +datum=NAD83 +units=m +no_defs") %>%
+#   st_buffer(dist=1500,mitreLimit=0.1) %>%
+#   st_transform(crs=4326)
+
+# Load a Stamen background
+# use bounding box defined earlier in notebook 
+# to load tiles
+# sbase2 <- get_stamenmap(bbox=c(left=lat2,
+#                               right=lat1,
+#                               bottom=lon1,
+#                               top=lon2),
+#                        zoom = 11,
+#                        maptype = "terrain-background")
+# 
+# map_sea <- ggmap(sbase2) 
+  # inset_raster(raster=as.raster(rast_seap), xmin = rast_seap@extent[1], xmax = rast_seap@extent[2],
+  #                 ymin = rast_seap@extent[3], ymax = rast_seap@extent[4])
+  # geom_raster(data=rast_seap_plot,aes(x=lon,y=lat,fill=fit)) +
+  # coord_cartesian()
+
+markerscale <- 1
+pal <- colorNumeric(
+  palette = "viridis",
+  domain=c(0,values(rast_seap)),
+  na.color = "transparent"
+)
+palse <- colorNumeric(
+  palette = "magma",reverse=TRUE,
+  domain=values(rast_sease),
+  na.color = "transparent"
+)
+map_sea <- leaflet() %>% 
+  addProviderTiles("Stamen.Terrain",options=providerTileOptions(opacity=1)) %>%
+  # addTiles("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png") %>%
+  addRasterImage(rast_seap,colors=pal,opacity=0.6,group="Prevalence") %>%
+  addRasterImage(rast_sease,colors=palse,opacity=0.6,group="Standard Error") %>%
+  addPolygons(data = lvictoria,
+              fill = TRUE,fillColor = "#99B3CC", fillOpacity=1, opacity=0
+              ) %>%
+
+  addCircleMarkers(data = dvil3_2014,
+                   lng = ~ lon, lat = ~ lat,
+                   radius = markerscale*sqrt((dvil3_2014$sea_prev*100)/pi),
+                   color = ~'black', weight=1,
+                   popup=paste(dvil3_2014$vid, "<br>",
+                               "N pos / tested: ", dvil3_2014$sea_n," / ",dvil3_2014$sea_N,"<br>",
+                         "SEA seroprevalence: ", sprintf("%1.0f",dvil3_2014$sea_prev*100),"%","<br>",
+                         "predicted: ",sprintf("%1.0f",dvil3_2014$pred_sea*100),"%",sep="")
+              ) %>%
+  
+  # add scale bar and legends
+  addScaleBar(position="bottomleft",options=scaleBarOptions(imperial = FALSE)) %>%
+  addLegend(position="bottomright",
+            pal = pal, 
+            values= c(0,values(rast_seap)),
+            title = "SEA (%)",
+            group = "Prevalence"
+            ) %>%
+  addLegend(position="bottomright",
+            pal = palse, 
+            values= values(rast_sease),
+            title = "Standard Error",
+            group="Standard Error"
+            ) %>%
+  # add layer controls
+  addLayersControl(overlayGroups = c("Prevalence", "Standard Error"), 
+                   position="topleft",
+                   options = layersControlOptions(collapsed=FALSE)) %>% 
+  hideGroup("Standard Error")
+
+
+map_sea
+
+
+```
+
+##  Predicted surface, Kato-Katz
+```{r map surface KK}
+
+# separate raster layers for prevalence and SE
+rast_kkp <- raster::raster(rast_kk2014,layer=1)
+rast_kkse <- raster::raster(rast_kk2014,layer=2)
+
+
+markerscale <- 1
+kkpal <- colorNumeric(
+  palette = "viridis",
+  domain=c(0,values(rast_kkp)),
+  na.color = "transparent"
+)
+kkpalse <- colorNumeric(
+  palette = "magma",reverse=TRUE,
+  domain=values(rast_kkse),
+  na.color = "transparent"
+)
+map_kk <- leaflet() %>% 
+  addProviderTiles("Stamen.Terrain",options=providerTileOptions(opacity=1)) %>%
+  # addTiles("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png") %>%
+  addRasterImage(rast_kkp,colors=kkpal,opacity=0.6,group="Prevalence") %>%
+  addRasterImage(rast_kkse,colors=kkpalse,opacity=0.6,group="Standard Error") %>%
+  addPolygons(data = lvictoria,
+              fill = TRUE,fillColor = "#99B3CC", fillOpacity=1, opacity=0
+              ) %>%
+
+  addCircleMarkers(data = dvil3_2014,
+                   lng = ~ lon, lat = ~ lat,
+                   radius = markerscale*sqrt((dvil3_2014$kk_prev*100)/pi),
+                   color = ~'black', weight=1,
+                   popup=paste(dvil3_2014$vid, "<br>",
+                               "N pos / tested: ", dvil3_2014$kk_n," / ",dvil3_2014$kk_N,"<br>",
+                         "Kato-Katz prevalence: ", sprintf("%1.0f",dvil3_2014$kk_prev*100),"%","<br>",
+                         "predicted: ",sprintf("%1.0f",dvil3_2014$pred_kk*100),"%",sep="")
+              ) %>%
+  
+  # add scale bar and legends
+  addScaleBar(position="bottomleft",options=scaleBarOptions(imperial = FALSE)) %>%
+  addLegend(position="bottomright",
+            pal = kkpal, 
+            values= c(0,values(rast_kkp)),
+            title = "Kato-Katz (%)",
+            group = "Prevalence"
+            ) %>%
+  addLegend(position="bottomright",
+            pal = kkpalse, 
+            values= values(rast_kkse),
+            title = "Standard Error",
+            group="Standard Error"
+            ) %>%
+  # add layer controls
+  addLayersControl(overlayGroups = c("Prevalence", "Standard Error"), 
+                   position="topleft",
+                   options = layersControlOptions(collapsed=FALSE)) %>% 
+  hideGroup("Standard Error")
+
+
+map_kk
+
+
+```
+
+
+## Observed vs Predicted SEA
+```{r sea obsvpred figure}
+# Make a figure of village level predicted prevalence versus observed prevalence 
+# estimate spearman rank correlation
+seacor <- cor(dvil3_2014$sea_prev,dvil3_2014$pred_sea,method="spearman") 
+
+# plot predicted versus observed
+ovp_sea <- ggplot(data=dvil3_2014,aes(x=sea_prev,y=pred_sea)) +
+  geom_abline(slope=1,intercept=0,lty="dashed",alpha=0.5)+
+  geom_point(color="black",alpha=0.7,size=4)+
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
+  scale_x_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
+  annotate(geom="text",x=0.2,y=0.8,size=10,label=paste("rho ==",sprintf("%1.2f",seacor)),parse=TRUE)+
+  coord_cartesian(ylim=c(0,1),xlim=c(0,1))+
+  labs(y="predicted SEA seroprevalence (%)",x="observed SEA seroprevalence (%)") +
+  theme_gray(base_size = 20) 
+ovp_sea
+
+
+# save a png file
+ggsave(here("output","mbita-spatialGAM-pred-v-obs-SEA.png"),ovp_sea,device="png",width=6,height=6)
+
+
+```
+
+## Observed vs Predicted Kato-Katz
+```{r kk obsvpred figure}
+# Make a figure of village level predicted prevalence versus observed prevalence 
+# estimate spearman rank correlation
+kkcor <- cor(dvil3_2014$kk_prev,dvil3_2014$pred_kk,method="spearman") 
+
+# plot predicted versus observed
+ovp_kk <- ggplot(data=dvil3_2014,aes(x=kk_prev,y=pred_kk)) +
+  geom_abline(slope=1,intercept=0,lty="dashed",alpha=0.5)+
+  geom_point(color="black",alpha=0.7,size=4)+
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
+  scale_x_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
+  annotate(geom="text",x=0.2,y=0.8,size=10,label=paste("rho ==",sprintf("%1.2f",kkcor)),parse=TRUE)+
+  coord_cartesian(ylim=c(0,1),xlim=c(0,1))+
+  labs(y="predicted Kato-Katz prevalence (%)",x="observed Kato-Katz prevalence (%)") +
+  theme_gray(base_size = 20) 
+ovp_kk
+
+
+# save a png file
+ggsave(here("output","mbita-spatialGAM-pred-v-obs-KK.png"),ovp_kk,device="png",width=6,height=6)
+
+
+```
+
+
+# Session Info
+```{r session info}
+sessionInfo()
+```
