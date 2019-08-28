@@ -1,0 +1,242 @@
+---
+title: "Mbita Schistosomiasis study village level SEA vs Kato-Katz"
+author: "Ben Arnold"
+date: ""
+output: 
+  html_document:
+    highlight: haddock
+    theme: default
+    code_folding: hide
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+
+# Preamble
+```{r preamble}
+library(here)
+here()
+#--------------------------------
+# source the configuration file
+#--------------------------------
+source(here("R/mbita-schisto-Config.R"))
+```
+
+
+# Load and process data
+```{r load data,message=FALSE,warning=FALSE}
+
+
+#---------------------------
+# mbita PSAC data
+#---------------------------
+d <- readRDS(here("data","mbita_psac.rds") )
+d <- d %>%
+  dplyr::select(year,vid,lon,lat,alt,pid,agey,sex,sea,sm_epg)
+
+#---------------------------
+# identify seropositive by
+# SEA using ROC cutoff
+#---------------------------
+d <- d %>%
+  mutate(
+    sea_pos = ifelse(sea>965,1,0),
+    kk_pos = ifelse(sm_epg>0,1,0)
+  )
+
+#---------------------------
+# collapse to counts at the
+# village level, by year
+# calculate prevalence
+# by SEA and Kato-Katz
+#
+# also summarize by village
+# over all years
+#---------------------------
+dvil <- d %>%
+  group_by(vid,year) %>%
+  summarize(sea_n = sum(sea_pos,na.rm=T),
+            sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
+            kk_n = sum(kk_pos,na.rm=T),
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            lon = mean(lon),
+            lat = mean(lat)
+            ) %>%
+  mutate(sea_prev = sea_n/sea_N,
+         kk_prev = kk_n/kk_N,
+         yearf = as.factor(year))
+
+dvil2 <- d %>%
+  group_by(vid) %>%
+  summarize(sea_n = sum(sea_pos,na.rm=T),
+            sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
+            kk_n = sum(kk_pos,na.rm=T),
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            lon = mean(lon),
+            lat = mean(lat)
+            ) %>%
+  mutate(sea_prev = sea_n/sea_N,
+         kk_prev = kk_n/kk_N)
+
+
+#---------------------------
+# create a long version 
+# of the collapsed data
+# that has separate rows
+# for SEA and KK
+# (a convenience for plotting)
+#---------------------------
+dvil2_sea <- dvil2 %>%
+  dplyr::select(vid,npos=sea_n,nmeas=sea_N,prev=sea_prev) %>%
+  mutate(measure = "SEA seroprevalence")
+
+dvil2_kk <- dvil2 %>%
+  dplyr::select(vid,npos=kk_n,nmeas=kk_N,prev=kk_prev) %>%
+  mutate(measure = "Kato-Katz prevalence")
+
+dvil2_long <- bind_rows(dvil2_sea,dvil2_kk) %>%
+  mutate(measure = factor(measure))
+
+
+
+```
+
+
+# Correlation between measures and over years
+
+## Correlation between SEA and KK
+
+Estimate the correlation between village-level SEA seroprevalence and Kato-Katz prevalence using a Spearman rank correlation statistic.  Estimate locally weighted smoothers of the relationship between SEA and Kato-Katz in each year and over all years.  Trim the smooths to 95% of the data to avoid edge effects.
+
+```{r correlation between measures}
+
+# estimate correlation overall
+cor_sea_kk <- cor(dvil2$sea_prev,dvil2$kk_prev,method="spearman")
+  
+
+#--------------------------------
+# estimate smooths, trimmed to
+# drop the bottom and top 2.5% of
+# data in each comparison
+# to avoid edge effects
+#--------------------------------
+dsmooths <- foreach(yeari=levels(dvil$yearf),.combine=rbind) %do% {
+                        pd <- filter(dvil,yearf==yeari)
+                        xqs <- quantile(pd$kk_prev,probs=c(0.025,0.975),na.rm=TRUE)
+                        yqs <- quantile(pd$sea_prev,probs=c(0.025,0.975),na.rm=TRUE)
+                        newd <- data.frame(kk_prev=seq(xqs[1],xqs[2],by=0.01))
+                        lfit <- loess(sea_prev~kk_prev,data=pd)
+                        return(data.frame(yearf=yeari,
+                                          kk_prev=newd$kk_prev,
+                                          sea_prev=predict(lfit,newdata=newd))
+                        )
+                        }
+
+
+pcols <- cbPalette[c(2,3,4)]
+
+scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev,color=yearf))+
+  geom_abline(intercept=0,slope=1,color="gray40")+
+  geom_line(data=dsmooths,size=0.5)+
+  geom_point(alpha=0.8) +
+  geom_smooth(data=dvil2,method="loess",se=FALSE,color="gray40",size=0.75)+
+  scale_color_manual(values=pcols,guide=guide_legend(title="year")) +
+  annotate("text",x=0.1,y=0.95,label=paste("rho ==",sprintf("%1.2f",cor_sea_kk)),parse=TRUE)+
+  scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
+  scale_x_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
+  coord_cartesian(ylim=c(0,1),xlim=c(0,1))+
+  labs(x="Kato-Katz prevalence (%)",y="SEA seroprevalence (%)")+
+  theme(legend.position=c(0.9,0.2),
+        panel.grid.minor=element_blank())
+scatter_sea_kk
+
+ggsave(filename = here("output","mbita-sea-kk-scatter.png"),plot = scatter_sea_kk, device = "png",width=4,height=4)
+
+```
+
+## Correlation between years for SEA and KK
+
+Correlation between years for village-level SEA seroprevalence and Kato-Katz prevalence
+
+```{r pairs plot of measure and year}
+
+#--------------------------------
+# custom pairs plot
+# ggpairs() just too hard to 
+# work with for this one
+#--------------------------------
+#--------------------------------
+# spread the SEA and KK data
+#--------------------------------
+dvil_sea <- dvil %>%
+  dplyr::select(vid,yearf,sea_prev) %>%
+  spread(yearf,-vid) %>%
+  rename(sea2012="2012",sea2013="2013",sea2014="2014")
+
+dvil_kk <- dvil %>%
+  dplyr::select(vid,yearf,kk_prev) %>%
+  spread(yearf,-vid) %>%
+  rename(kk2012="2012",kk2013="2013",kk2014="2014")
+
+#--------------------------------
+# x, y scatter plot function
+# with correlation estimate
+#--------------------------------
+xypairs <- function(data,mapping,point_color) {
+  # estimate correlation
+  xycor <- cor(x=data[,gsub("~","",paste(mapping[1]))],
+               y=data[,gsub("~","",paste(mapping[2]))],
+               method="spearman")
+  # plot the data
+  ggplot(data = data, mapping = mapping)+
+    geom_abline(intercept=0,slope=1,col="gray40")+
+    geom_point(color=point_color,alpha=0.75)+
+    annotate("text",x=0.25,y=0.9,label=paste("rho ==",sprintf("%1.2f",xycor)),parse=TRUE,color="gray40")+
+    scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
+    scale_x_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
+    coord_cartesian(xlim=c(0,1),ylim=c(0,1)) +
+    labs(x="",y="") 
+    # theme_minimal()
+}
+
+#--------------------------------
+# make the panels
+#--------------------------------
+p1213 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2013),point_color=cbPalette[3])
+p1214 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2014),point_color=cbPalette[3])
+p1314 <- xypairs(data=dvil_sea,aes(x=sea2013,y=sea2014),point_color=cbPalette[3])
+l2012 <- textGrob(label = "2012",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4))
+l2013 <- textGrob(label = "2013",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4))
+l2014 <- textGrob(label = "2014",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4)) 
+kk1213 <- xypairs(data=dvil_kk,aes(x=kk2012,y=kk2013),point_color=cbPalette[2])
+kk1214 <- xypairs(data=dvil_kk,aes(x=kk2012,y=kk2014),point_color=cbPalette[2])
+kk1314 <- xypairs(data=dvil_kk,aes(x=kk2013,y=kk2014),point_color=cbPalette[2])
+
+#--------------------------------
+# arrange the pairs plot
+#--------------------------------
+pairs_sea_kk <- grid.arrange(grobs = list(l2012,kk1213,kk1214,
+                                       p1213,l2013,kk1314,
+                                       p1214,p1314,l2014), 
+                       widths = c(1,1,1), 
+                       heights = c(1,1,1),
+                       layout_matrix = matrix(1:9,ncol=3,nrow=3,byrow=TRUE),
+                       left = textGrob(label="SEA seroprevalence (%)",y=0.4,x=0.5,rot=90),
+                       bottom = textGrob(label="SEA seroprevalence (%)",y=0.5,x=0.4),
+                       right = textGrob(label="Kato-Katz prevalence (%)",y=0.7,x=0.5,rot=270),
+                       top = textGrob(label="Kato-Katz prevalence (%)",y=0.5,x=0.7)
+                       )
+ggsave(filename = here("output","mbita-sea-kk-year-prev-pairs.png"),plot = pairs_sea_kk, device = "png",width=6,height=6)
+
+
+
+```
+
+# Session Info
+```{r session info}
+sessionInfo()
+```
