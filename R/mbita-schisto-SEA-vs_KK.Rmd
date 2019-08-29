@@ -34,19 +34,7 @@ source(here("R/mbita-schisto-Config.R"))
 #---------------------------
 # mbita PSAC data
 #---------------------------
-d <- readRDS(here("data","mbita_psac.rds") )
-d <- d %>%
-  dplyr::select(year,vid,lon,lat,alt,pid,agey,sex,sea,sm_epg)
-
-#---------------------------
-# identify seropositive by
-# SEA using ROC cutoff
-#---------------------------
-d <- d %>%
-  mutate(
-    sea_pos = ifelse(sea>965,1,0),
-    kk_pos = ifelse(sm_epg>0,1,0)
-  )
+d <- readRDS(here("data","mbita_schisto.rds") )
 
 #---------------------------
 # collapse to counts at the
@@ -62,9 +50,7 @@ dvil <- d %>%
   summarize(sea_n = sum(sea_pos,na.rm=T),
             sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
             kk_n = sum(kk_pos,na.rm=T),
-            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
-            lon = mean(lon),
-            lat = mean(lat)
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0))
             ) %>%
   mutate(sea_prev = sea_n/sea_N,
          kk_prev = kk_n/kk_N,
@@ -75,33 +61,10 @@ dvil2 <- d %>%
   summarize(sea_n = sum(sea_pos,na.rm=T),
             sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
             kk_n = sum(kk_pos,na.rm=T),
-            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
-            lon = mean(lon),
-            lat = mean(lat)
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0))
             ) %>%
   mutate(sea_prev = sea_n/sea_N,
          kk_prev = kk_n/kk_N)
-
-
-#---------------------------
-# create a long version 
-# of the collapsed data
-# that has separate rows
-# for SEA and KK
-# (a convenience for plotting)
-#---------------------------
-dvil2_sea <- dvil2 %>%
-  dplyr::select(vid,npos=sea_n,nmeas=sea_N,prev=sea_prev) %>%
-  mutate(measure = "SEA seroprevalence")
-
-dvil2_kk <- dvil2 %>%
-  dplyr::select(vid,npos=kk_n,nmeas=kk_N,prev=kk_prev) %>%
-  mutate(measure = "Kato-Katz prevalence")
-
-dvil2_long <- bind_rows(dvil2_sea,dvil2_kk) %>%
-  mutate(measure = factor(measure))
-
-
 
 ```
 
@@ -137,11 +100,11 @@ dsmooths <- foreach(yeari=levels(dvil$yearf),.combine=rbind) %do% {
                         }
 
 
-pcols <- cbPalette[c(2,3,4)]
+pcols <- cbPalette[c(3,4,8)]
 
 scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev,color=yearf))+
   geom_abline(intercept=0,slope=1,color="gray40")+
-  geom_line(data=dsmooths,size=0.5)+
+  geom_line(data=dsmooths,size=0.5,alpha=0.5)+
   geom_point(alpha=0.8) +
   geom_smooth(data=dvil2,method="loess",se=FALSE,color="gray40",size=0.75)+
   scale_color_manual(values=pcols,guide=guide_legend(title="year")) +
