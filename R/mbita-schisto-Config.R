@@ -10,13 +10,17 @@
 #--------------------------------
 # load packages
 #--------------------------------
+
+# general
 library(tidyverse)
 library(scales)
 library(grid)
 library(gridExtra)
+
+# spatial
+library(sp)
 library(sf)
 library(raster)
-library(ggmap)
 library(leaflet)
 library(mgcv)
 
