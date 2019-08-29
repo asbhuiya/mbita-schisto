@@ -76,8 +76,8 @@ xypoly <- st_polygon(list(rbind(xychull,xychull[1,]))) %>%
 # box for all mapping and
 # predictions below
 #---------------------------
-lon1 <- 34.00
-lon2 <- 34.55
+lon1 <- 33.94
+lon2 <- 34.52
 lat1 <- -0.55
 lat2 <- -0.3207
 
@@ -318,10 +318,10 @@ rast_kk <- SpatialPixelsDataFrame(points=pred_grid[c("lon","lat")],data=data.fra
 ## Overview map
 Overview of the study region
 
-```{r overview map}
+```{r overview map, out.width = "100%"}
 xlon <- mean(lon1,lon2)
 ylat <- mean(lat1,lat2)
-map_overview <- leaflet() %>%
+map_overview <- leaflet(width = "100%") %>%
   addProviderTiles("Esri.WorldTopoMap",options=providerTileOptions(opacity=1)) %>%
   setView(lng = xlon, lat = ylat, zoom = 6) %>%
   addRectangles(
@@ -339,9 +339,10 @@ map_overview
 ## Points map (SEA + KK)
 
 Map village locations, colored by SEA seroprevalence and Kato-Katz prevalence
-```{r points map with leaflet}
-xlon <- median(dvil2$lon)
-ylat <- median(dvil2$lat)
+```{r points map with leaflet, out.width = "100%"}
+
+xlon <- mean(dvil2$lon)
+ylat <- mean(dvil2$lat)
 pointpal <- colorNumeric(
   palette = "viridis",
   domain=c(0,max(dvil2$sea_prev*100)),
@@ -353,7 +354,7 @@ pointpal_rev <- colorNumeric(
   na.color = "transparent",
   reverse = TRUE
 )
-map_points <- leaflet() %>%
+map_points <- leaflet(width = "100%") %>%
   addProviderTiles("CartoDB.Positron",options=providerTileOptions(opacity=1)) %>%
   setView(lng = xlon, lat = ylat, zoom = 11) %>%
   addCircleMarkers(data = dvil2, group = "SEA seroprevalence",
@@ -399,7 +400,7 @@ map_points
 ```
 
 ##  Predicted surface, SEA
-```{r map surface SEA}
+```{r map surface SEA, out.width = "100%"}
 
 # separate raster layers for prevalence and SE
 rast_seap <- raster::raster(rast_sea,layer=1)
@@ -450,8 +451,8 @@ palse_rev <- colorNumeric(
 )
 
 # make the map
-map_sea <- leaflet() %>% 
-  addProviderTiles("CartoDB.Positron",options=providerTileOptions(opacity=1)) %>%
+map_sea <- leaflet(width = "100%") %>% 
+  # addProviderTiles("CartoDB.Positron",options=providerTileOptions(opacity=1)) %>%
   # addTiles("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png") %>%
   setView(lng = xlon, lat = ylat, zoom = 11) %>%
   addRasterImage(rast_seap,colors=pal,opacity=0.6,group="Prevalence") %>%
@@ -504,7 +505,7 @@ map_sea
 ```
 
 ##  Predicted surface, Kato-Katz
-```{r map surface KK}
+```{r map surface KK, out.width = "100%"}
 
 # separate raster layers for prevalence and SE
 rast_kkp <- raster::raster(rast_kk,layer=1)
@@ -540,8 +541,8 @@ kkpalse_rev <- colorNumeric(
 )
 
 # make the map
-map_kk <- leaflet() %>% 
-  addProviderTiles("CartoDB.Positron",options=providerTileOptions(opacity=1)) %>%
+map_kk <- leaflet(width = "100%") %>% 
+  # addProviderTiles("CartoDB.Positron",options=providerTileOptions(opacity=1)) %>%
   # addTiles("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png") %>%
   setView(lng = xlon, lat = ylat, zoom = 11) %>%
   addRasterImage(rast_kkp,colors=kkpal,opacity=0.6,group="Prevalence") %>%
