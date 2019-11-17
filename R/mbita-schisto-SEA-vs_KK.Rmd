@@ -332,6 +332,14 @@ ggsave(filename=here("output","mbita-village-transmission-ests.png"),plot=vil_tr
 
 ```
 
+# Save FOI estimates for future use
+
+Save village-level force of infection estimates for future use in downstream data visualizations.
+```{r save FOI}
+saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
+```
+
+
 # Session Info
 ```{r session info}
 sessionInfo()
