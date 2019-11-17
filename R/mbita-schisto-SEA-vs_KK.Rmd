@@ -195,9 +195,41 @@ pairs_sea_kk <- grid.arrange(grobs = list(l2012,kk1213,kk1214,
                        )
 ggsave(filename = here("output","mbita-sea-kk-year-prev-pairs.png"),plot = pairs_sea_kk, device = "png",width=6,height=6)
 
+```
 
+## Simplified version with only SEA
+
+```{r pairs plot of SEA by year}
+
+#--------------------------------
+# make the panels
+#--------------------------------
+p1213 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2013),point_color=cbPalette[3])
+p1214 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2014),point_color=cbPalette[3])
+p1314 <- xypairs(data=dvil_sea,aes(x=sea2013,y=sea2014),point_color=cbPalette[3])
+l2012 <- textGrob(label = "2012",x=unit(0.6,"npc"),y=unit(0.1,"npc"),gp=gpar(cex=1.4))
+l2013 <- textGrob(label = "2013",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4))
+l2014 <- textGrob(label = "2014",x=unit(0.2,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4)) 
+
+#--------------------------------
+# arrange the pairs plot
+#--------------------------------
+pairs_sea <- grid.arrange(grobs = list(l2012,
+                                       p1213,l2013,
+                                       p1214,p1314,l2014), 
+                       widths = c(1,1,1), 
+                       heights = c(1,1,1),
+                       layout_matrix = matrix(c(1,NA,NA,2,3,NA,4,5,6),nrow=3,ncol=3,byrow=T),
+                       left = textGrob(label="SEA seroprevalence (%)",y=0.4,x=0.5,rot=90),
+                       bottom = textGrob(label="SEA seroprevalence (%)",y=0.5,x=0.4),
+                       # right = textGrob(label="Kato-Katz prevalence (%)",y=0.7,x=0.5,rot=270),
+                       # top = textGrob(label="Kato-Katz prevalence (%)",y=0.5,x=0.7)
+                       )
+ggsave(filename = here("output","mbita-sea-year-prev-pairs.png"),plot = pairs_sea, device = "png",width=6,height=6)
 
 ```
+
+
 
 # Session Info
 ```{r session info}
