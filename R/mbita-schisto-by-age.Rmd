@@ -1,0 +1,406 @@
+---
+title: "Mbita, Kenya schistosomiasis study. Age-dependent force of infection"
+output:
+  html_document:
+    highlight: haddock
+    theme: default
+    code_folding: hide
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+
+# Preamble
+```{r preamble}
+library(here)
+here()
+#--------------------------------
+# source the configuration file
+# and the shared functions file
+#--------------------------------
+source(here("R/mbita-schisto-Config.R"))
+source(here("R/mbita-schisto-Functions.R"))
+```
+
+
+
+# Load Mbita Kenya antibody measurements
+
+These data include measurements from pre-school aged children in 30 villages near Homa Bay and Mbita in Western Kenya. This article summarizes the study design and field methods:
+
+Won KY, Kanyi HM, Mwende FM, Wiegand RE, Brook Goodhew E, Priest JW, et al. Multiplex Serologic Assessment of Schistosomiasis in Western Kenya: Antibody Responses in Preschool Age Children as a Measure of Reduced Transmission. _Am J Trop Med Hyg._ 2017; 16–0665. https://www.ncbi.nlm.nih.gov/pubmed/28719280
+
+```{r load data, warning=FALSE}
+#-----------------------------------
+# load the child antibody and 
+# kato-katz measurements
+#-----------------------------------
+d <- readRDS(here("data","mbita_schisto.rds"))
+
+#-----------------------------------
+# load the village-level spatial
+# covariate data, created with
+# mbita-schisto-map.Rmd
+#
+# note: for public-facing workflow
+# this file does not include village 
+# lon/lat to protect participant
+# confidentiality
+#-----------------------------------
+d_spatial <- readRDS(here("data","mbita_spatial.rds"))
+
+d2 <- d %>%
+  left_join(d_spatial,by="vid")
+
+# create age strata
+# create log values for SEA MFI and KK epg
+# convert the dist_victoria variable from class units to numeric
+d2 <- d2 %>%
+  mutate(agecat = cut(agey,breaks=c(0,1,2,3,4,6),
+                      labels=c("<1 year","1 year","2 years","3 years","4 years")),
+         logsea = log10(sea),
+         logepg = log10(sm_epg),
+         dist_victoria = as.numeric(dist_victoria)
+         )
+
+#----------------------------------
+# prep data for model
+#----------------------------------
+d3 <- d2 %>% 
+  ungroup() %>%
+  mutate(vid=factor(vid),
+         dummy=1)
+
+
+```
+
+
+# Age stratified distributions
+
+```{r density plot by age}
+
+table(d2$agecat)
+
+pdist <- ggplot(data=d2,aes(x=logsea)) +
+  facet_grid(agecat~.) +
+  geom_density(alpha=1,color=NA,fill=cbPalette[3]) +
+  geom_vline(aes(xintercept = log10(965) ),lty=1) +
+  # scale_fill_manual(values=pcols)+
+  # geom_vline(aes(xintercept = mixcut),lty=2) +
+  labs(x="log10 luminex response (MFI-bg)") +
+  theme_minimal() + 
+  theme(legend.position = "none",
+        strip.text.y=element_text(angle=0))
+
+pdist
+
+# save png file for presentation
+# ggsave(filename=here("output","mbita-ab-dists-ashb-sea-vsp.png"),plot=pdist2,device="png",width=8,height=7)
+
+```
+
+
+# Age dependent seroprevalence
+
+Estimate age-dependent seroprevalence using a semi-parametric spline fit.  Include community-level random effects to account for repeated measures within community. Estimate an approximate, simultaneous 95% confidence interval on the spline fit.
+
+```{r agecurves seroprev}
+
+fitp_sea <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family="binomial", 
+                      data=d3)
+newd <- d3 %>%  mutate(dummy=0)
+fitp_seaci <- gamCI(m=fitp_sea,newdata=newd,nreps=10000)
+
+# convert linear predictor to prevalance
+fitp_seaci <- fitp_seaci %>%
+  mutate(fit = expitfn(fit),
+         uprP = expitfn(uprP),
+         lwrP = expitfn(lwrP),
+         uprS = expitfn(uprS),
+         lwrS = expitfn(lwrS),
+         )
+
+```
+
+Make a figure
+```{r seroprev by age plot}
+
+pageprev <- ggplot(data=fitp_seaci,aes(x=agey,y=fit)) +
+  geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.3,fill=cbPalette[3]) +
+  geom_line(lwd=0.5,alpha=1,color=cbPalette[3]) +
+  scale_y_continuous(breaks=seq(0,0.8,by=0.1),labels=seq(0,80,by=10))+
+  labs(x="age, years",y="SEA seroprevalence (%)") +
+  coord_cartesian(xlim=c(0,5),ylim=c(0,0.8))+
+  theme_minimal() +
+  theme(legend.position="none")
+
+pageprev
+
+
+```
+
+
+
+# Age-specific force of infection (FOI)
+
+Estimate the age-dependent seroconversion rate as a measure of force of infection (FOI) using a semi-parametric spline model. Estimate FOI using finite differences of the age-dependent seroprevalence curve for the derivative.
+
+```{r foi simultaneous CI}
+#----------------------------
+# function to estimate the
+# age-specific FOI under a
+# GAM model smooth
+#
+# @param       m : GAM model fit object from mgcv gam()
+# @param newdata : data.frame on which to make predictions from the model fit.
+#                  Must include all variables used to fit the model m
+# @param  fdvar  : Finite difference variable (string), included in newdata which should be used
+#                  to estimate the derivative.
+# @param    eps  : amount to shift fdvar for calculating finite differences
+# @param  level  : confidence level for simultaneous confidence intervals
+# @param  nreps  : number of replications to sample from the Bayesian posterior
+#
+# @returns : foiCI returns a data.frame identical to newdata with 13 new variables:
+#            foi : pointwise estimate of the force of infection
+#         foi_se : approximate standard error of the FOI prediction
+#      foi_uprBS : upper pointwise 95% confidence interval from the posterior bootstrap simulation
+#      foi_lwrBS : lower pointwise 95% confidence interval from the posterior bootstrap simulation
+#       foi_crit : critical value used for teh simultaneous CI calculation
+#       foi_uprP : upper pointwise 95% confidence interval
+#       foi_lwrP : lower pointwise 95% confidence interval
+#       foi_uprS : upper simultaneous 95% confidence interval
+#       foi_lwrS : lower simultaneous 95% confidence interval
+#             ft : pointwise estimate of the derivative of Ft
+#          ft_se : pointwise estimate of the standard error of the derivative of Ft
+#             Ft : pointwise estimate of the linear predictor of Ft
+#          Ft_se : pointwise estimate of the standard error of the linear predictor of Ft
+#
+#                    Note: foi = ft * (exp(Ft)/(1+exp(Ft))) for a logit link
+#                    See Hens et al. 2012 Modeling Infectious Disease Parameters
+#                                         Using Serological and Social Contact Data, Table 5.1
+#----------------------------
+foiCI <- function(m,newdata,fdvar,eps=1e-07,level=0.95,nreps=10000) {
+  
+  # variance-covariance matrix from the spline fit
+  # unconditional on the fit of the mean
+  # this is slightly more conservative and with better coverage
+  # properties. 
+  # See Marra G, Wood SN. 
+  # Coverage Properties of Confidence Intervals 
+  # for Generalized Additive Model Components.   
+  # Scand Stat Theory Appl. 2012;39: 53–74.
+  Vb <- vcov(m,unconditional = TRUE)
+  
+  # calculate the linear predictor, g(Ft), and its pointwise SE
+  pred <- predict(m, newdata, se.fit = TRUE)
+  Ft <- pred$fit
+  Ft_se <- pred$se.fit
+  
+  # simulate from the posterior distrivbution
+  # with mean zero and variance from the posterior
+  # assuming multivariate normal coefficients
+  BUdiff <- MASS::mvrnorm(n = nreps, mu = rep(0, nrow(Vb)), Sigma = Vb)
+  
+  # get a critical value for the
+  # simultaneous confidence interval of g(Ft)
+  X0 <- predict(m, newdata, type = "lpmatrix")
+  Ft_simDev <- X0 %*% t(BUdiff)
+  Ft_absDev <- abs(sweep(Ft_simDev, 1, Ft_se, FUN = "/"))
+  Ft_masd <- apply(Ft_absDev, 2L, max)
+  Ft_crit <- quantile(Ft_masd, prob = 0.95, type = 8)
+  
+  # calculate the derivative, g'(Ft), using
+  # finite differences and its pointwise SE
+  # ?mgcv::predict.gam includes an example of this
+  newdata2 <- newdata
+    newdata2[fdvar] <- newdata[fdvar]+eps
+  X1 <- predict(m,newdata2,type='lpmatrix')
+  Xp <- (X1 - X0) / eps
+  ft <- Xp %*% coef(m)
+  ft_se <- rowSums(Xp %*% Vb * Xp)^0.5
+  
+  # get a critical value for the
+  # simultaneous confidence interval of the derivative
+  ft_simDev <- Xp %*% t(BUdiff)
+  ft_absDev <- abs(sweep(ft_simDev, 1, ft_se, FUN = "/"))
+  ft_masd <- apply(ft_absDev, 2L, max)
+  ft_crit <- quantile(ft_masd, prob = level, type = 8)
+  
+  # parametric bootstrap simulation from the
+  # model coefficient estimates, assuming the model is true
+  # FOI is the derivative of the linear predictor
+  # multiplied by the predicted probability, Ft
+  sims<- MASS::mvrnorm(n = nreps, mu = coef(m), Sigma = Vb)
+  Ft_bs <- X0 %*% t(sims)
+  ft_bs <- Xp %*% t(sims)
+  foi_bs <- ft_bs*(exp(Ft_bs)/(1+exp(Ft_bs)))
+  
+  # estimate age-specific force of infection
+  # averaged over the bootstrap replicates
+  # along with SE and confidence intervals for FOI
+  # use whichever critical value is larger for Ft or ft
+  # for the simultaneous CIs
+  foi <- rowMeans(foi_bs)
+  foi_crit <- max(Ft_crit,ft_crit)
+  foi_se <- apply(foi_bs,1,function(x) sd(x))
+  foi_lwrBS <- apply(foi_bs,1,function(x) quantile(x,probs=c(0.025))) 
+  foi_uprBS <- apply(foi_bs,1,function(x) quantile(x,probs=c(0.975)))
+  foi_Sci <- cbind(foi - foi_crit*foi_se, foi + foi_crit*foi_se)
+  
+  # return results
+  pred <- data.frame(newdata,foi=foi,foi_se=foi_se,foi_lwrBS=foi_lwrBS,foi_uprBS=foi_uprBS,foi_crit,ft=ft,ft_se=ft_se,Ft=Ft,Ft_se=Ft_se)
+  pred <- mutate(pred,
+                 foi_uprP = foi + (2 * foi_se),
+                 foi_lwrP = foi - (2 * foi_se),
+                 foi_uprS = foi + (foi_crit * foi_se),
+                 foi_lwrS = foi - (foi_crit * foi_se)
+  )
+  return(pred)
+  
+}
+```
+
+```{r estimate foi from seroprevalence}
+#----------------------------
+# estimate FOI for SEA
+# from the spline model
+#----------------------------
+
+#----------------------------------------
+# Model predictions of FOI, with age grid newd
+#----------------------------------------
+set.seed(123)
+newd <- data.frame(agey=seq(0.2,5,by=0.01),vid="1",dummy=0)
+foi_ests <- foiCI(m=fitp_sea,newdata=newd,fdvar="agey")
+
+```
+
+```{r foi by age figure}
+foiplot <- ggplot(data=foi_ests,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS)) +
+  geom_ribbon(color=NA,alpha=0.3,fill=cbPalette[3]) +
+  geom_line(color=cbPalette[3]) +
+  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
+  labs(x="age, years",y=expression(paste("age-specific seroconversion rate per year, ",lambda,"(a)")))+
+  coord_cartesian(ylim=c(0,0.6))+
+  theme_minimal()
+foiplot
+```
+
+# Analyses stratified by distance
+
+In the descriptive analyses, most villages further than 1.5 km of Lake Victoria had distinctly lower village-specific estimates of force of infection.  Stratify the age-seroprevalence curves and age-specific force of infection estimates by distance from the lake.
+
+## Fit a stratified seroprevalence model
+
+```{r analysis by 1500m}
+#-----------------------------
+# create an indicator for 
+# children living in villages
+# more than 1500 meters from
+# lake victoria.  This distance
+# was chosen by inspection of
+# village-specific FOI estimates
+#-----------------------------
+d4 <- d3 %>%
+  mutate(gt15 = ifelse(dist_victoria>1500,1,0),
+         lt15 = ifelse(dist_victoria<=1500,1,0)
+         )
+
+#----------------------------------------
+# fit a model allowing age-specific
+# seroprevalence to vary by group
+#----------------------------------------
+fitp_dist <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9,by=gt15) + 
+                         s(agey,bs="cr",k=9,by=lt15) + 
+                         s(vid,bs="re",by=dummy), 
+                       family="binomial", 
+                       data=d4)
+newd0 <- d4 %>%  mutate(dummy=0,gt15=0,lt15=1)
+newd1 <- d4 %>%  mutate(dummy=0,gt15=1,lt15=0)
+fitp_dist0_ci <- gamCI(m=fitp_dist,newdata=newd0,nreps=10000)
+fitp_dist1_ci <- gamCI(m=fitp_dist,newdata=newd1,nreps=10000)
+
+# convert linear predictor to prevalance
+fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
+  mutate(fit = expitfn(fit),
+         uprP = expitfn(uprP),
+         lwrP = expitfn(lwrP),
+         uprS = expitfn(uprS),
+         lwrS = expitfn(lwrS),
+         ) %>%
+  mutate(dist=factor(gt15,levels=c(0,1),labels=c("<1.5 km from lake",">1.5 km from lake")))
+
+```
+
+## Figure of seroprevalence by age, stratified by distance from the lake
+
+```{r figure of SEA seroprevalence by age stratified by distance}
+
+#----------------------------------------
+# seroprevalence curves
+#----------------------------------------
+distcols <- cbPalette[c(8,4)]
+pageprev_sea01 <- ggplot(data=fitp_dist_ci,aes(x=agey,y=fit,group=dist,color=dist,fill=dist)) +
+  geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.2,color=NA) +
+  geom_line(lwd=0.5,alpha=1) +
+  scale_color_manual(values=distcols)+
+  scale_fill_manual(values=distcols)+
+  scale_y_continuous(breaks=seq(0,0.9,by=0.1),labels=seq(0,90,by=10))+
+  labs(x="age, years",y="seroprevalence (%)") +
+  coord_cartesian(ylim=c(0,0.9),xlim=c(0,5))+
+  theme_minimal() +
+  theme(legend.position=c(0.25,0.85))
+
+pageprev_sea01
+
+# save png file
+ggsave(filename=here("output","mbita-sea-age-seroprev-dist.png"),plot=pageprev_sea01,device="png",width=3*1.18,height=3)
+
+```
+
+## Estimate FOI, stratified by distance from the lake
+
+```{r foi by distance}
+#----------------------------------------
+# Conditional estimates of FOI
+#----------------------------------------
+set.seed(123)
+newd0 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=0,lt15=1,vid="1",dummy=0)
+newd1 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=1,lt15=0,vid="1",dummy=0)
+foi_ests0 <- foiCI(m=fitp_dist,newdata=newd0,fdvar="agey")
+foi_ests1 <- foiCI(m=fitp_dist,newdata=newd1,fdvar="agey")
+foi_dist <- bind_rows(foi_ests0,foi_ests1) %>%
+  mutate(dist=factor(gt15,levels=c(0,1),labels=c("<1.5 km from lake",">1.5 km from lake")))
+```
+
+## Figure of FOI by age, stratified by distance from the lake
+```{r figure of foi by age stratified by distance from lake}
+#----------------------------------------
+# FOI curves
+#----------------------------------------
+foiplot2 <- ggplot(data=foi_dist,aes(x=agey,y=foi,ymin=foi_lwrS,ymax=foi_uprS,group=dist,color=dist,fill=dist)) +
+  geom_ribbon(color=NA,alpha=0.3) +
+  geom_line() +
+  scale_color_manual(values=distcols)+
+  scale_fill_manual(values=distcols)+
+  scale_y_continuous(breaks=seq(0,0.8,by=0.1))+
+  labs(x="age, years",y=expression(paste("seroconversion rate per year, ",lambda,"(a)"))) +
+  coord_cartesian(ylim=c(0,0.8))+
+  theme_minimal() +
+    theme(legend.position=c(0.25,0.85))
+foiplot2
+
+# save png file
+ggsave(filename=here("output","mbita-sea-age-foi-dist.png"),plot=foiplot2,device="png",width=3*1.18,height=3)
+```
+
+
+# Session Info
+```{r session info}
+sessionInfo()
+```
+
+
