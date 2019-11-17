@@ -1,0 +1,307 @@
+---
+title: "Mbita, Kenya schistosomiasis study. Analysis of distance from Lake Victoria"
+output:
+  html_document:
+    highlight: haddock
+    theme: default
+    code_folding: hide
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+
+# Preamble
+```{r preamble}
+library(here)
+here()
+#--------------------------------
+# source the configuration file
+#--------------------------------
+source(here("R/mbita-schisto-Config.R"))
+
+#--------------------------------
+# source the shared functions file
+#--------------------------------
+source(here("R/mbita-schisto-Functions.R"))
+```
+
+
+
+# Load Mbita Kenya antibody measurements and other data
+
+These data include measurements from pre-school aged children in 30 villages near Homa Bay and Mbita in Western Kenya. This article summarizes the study design and field methods:
+
+Won KY, Kanyi HM, Mwende FM, Wiegand RE, Brook Goodhew E, Priest JW, et al. Multiplex Serologic Assessment of Schistosomiasis in Western Kenya: Antibody Responses in Preschool Age Children as a Measure of Reduced Transmission. _Am J Trop Med Hyg._ 2017; 16–0665. https://www.ncbi.nlm.nih.gov/pubmed/28719280
+
+```{r load data, warning=FALSE}
+#-----------------------------------
+# load the child antibody and 
+# kato-katz measurements
+#-----------------------------------
+d <- readRDS(here("data","mbita_schisto.rds")) %>%
+  mutate(vid=factor(vid))
+
+#-----------------------------------
+# load the village-level spatial
+# covariate data, created with
+# mbita-schisto-map.Rmd
+#
+# note: for public-facing workflow
+# this file does not include village 
+# lon/lat to protect participant
+# confidentiality
+#-----------------------------------
+d_spatial <- readRDS(here("data","mbita_spatial.rds")) %>%
+  mutate(vid=factor(vid))
+
+d2 <- d %>%
+  left_join(d_spatial,by="vid")
+
+# create age strata
+# create log values for SEA MFI and KK epg
+# convert the dist_victoria variable from class units to numeric
+# add a dummy variable for modeling
+d2 <- d2 %>%
+  mutate(agecat = cut(agey,breaks=c(0,1,2,3,4,6),
+                      labels=c("<1 year","1 year","2 years","3 years","4 years")),
+         logsea = log10(sea),
+         logepg = log10(sm_epg),
+         dist_victoria = as.numeric(dist_victoria),
+         dummy=1
+         )
+
+#-----------------------------------
+# load village-level FOI estimates
+# estimated in the notebook
+# mbita-schisto-SEA-vs_KK.Rmd
+#-----------------------------------
+d_foi <- readRDS(here("output","mbita-village-foi.rds"))
+
+#-----------------------------------
+# create a village-level summary
+# dataset of spatial covariates,
+# prevalence, and FOI for making figures
+#-----------------------------------
+
+dvil <- d2 %>%
+  group_by(vid) %>%
+  summarize(sea_n = sum(sea_pos,na.rm=T),
+            sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
+            kk_n = sum(kk_pos,na.rm=T),
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            arm = max(arm)
+            ) %>%
+  mutate(sea_prev = sea_n/sea_N,
+         kk_prev = kk_n/kk_N)
+  
+# join FOI estimates
+dvil2 <- left_join(dvil,d_foi,by="vid")
+
+# join spatial covariates
+dvil3 <- left_join(dvil2,d_spatial,by="vid") %>%
+  mutate(dist_victoria = as.numeric(dist_victoria))
+
+```
+
+
+# Village-level seroprevalence and FOI versus distance from the lake
+
+## Fit models of prevalence by distance
+
+Estimate seroprevalence as a function of distance from Lake Victoria using a semi-parametric spline
+
+```{r seroprevalence vs dist}
+#-----------------------------
+# spline model of SEA seroprevalence
+# by distance from the lake
+# 
+# include village-level random
+# effects to account for within-
+# village correlation
+#-----------------------------
+
+fit_sea_dist <- mgcv::gam(sea_pos~s(dist_victoria,bs="cr",k=4) + s(vid,bs="re",by=dummy),
+                          family="binomial",
+                          data=d2)
+newd <- d2 %>% filter(dist_victoria < 4000) %>% mutate(dummy=0)
+fit_sea_dist_ci <- gamCI(m=fit_sea_dist,newdata=newd,nreps=10000)
+
+# convert linear predictor to prevalance 
+# (note: expitfn() is in shared functions, source above)
+fit_sea_dist_ci <- fit_sea_dist_ci %>%
+  mutate(fit = expitfn(fit),
+         uprP = expitfn(uprP),
+         lwrP = expitfn(lwrP),
+         uprS = expitfn(uprS),
+         lwrS = expitfn(lwrS),
+         )
+
+```
+
+Estimate Kato-Katz prevalence as a function of distance from Lake Victoria using a semi-parametric spline
+
+```{r kk prevalence vs dist}
+#-----------------------------
+# spline model of SEA seroprevalence
+# by distance from the lake
+#-----------------------------
+
+fit_kk_dist <- mgcv::gam(kk_pos~s(dist_victoria,bs="cr",k=4) + s(vid,bs="re",by=dummy), 
+                         family="binomial",
+                         data=d2)
+newd <- d2 %>% filter(dist_victoria < 4000) %>% mutate(dummy=0)
+fit_kk_dist_ci <- gamCI(m=fit_kk_dist,newdata=newd,nreps=10000)
+
+# convert linear predictor to prevalance 
+# (note: expitfn() is in shared functions, source above)
+fit_kk_dist_ci <- fit_kk_dist_ci %>%
+  mutate(fit = expitfn(fit),
+         uprP = expitfn(uprP),
+         lwrP = expitfn(lwrP),
+         uprS = expitfn(uprS),
+         lwrS = expitfn(lwrS),
+         )
+
+```
+
+## KK prevalence vs. distance
+
+```{r KK prev vs distance fig}
+#-----------------------------
+# KK prevalence by distance
+#-----------------------------
+pkkdist <- ggplot(data=fit_kk_dist_ci,aes(x=dist_victoria/1000)) +
+  geom_line(aes(y=fit), color="gray40",lwd=0.3) +
+  # geom_ribbon(aes(ymin=lwrP,ymax=uprP),alpha=0.1,color=NA,fill="black") +
+  # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
+  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=kk_prev),alpha=1,color=cbPalette[2]) +
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
+  scale_x_continuous(breaks=0:5)+
+  # scale_color_manual(values=pcols)+
+  coord_cartesian(ylim=c(0,0.9),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y="community prevalence (%)") +
+  theme_minimal() +
+  theme(legend.position="none")
+pkkdist
+
+```
+
+## SEA seroprevalence vs. distance
+```{r SEA seroprev vs distance fig}
+#-----------------------------
+# SEA seroprevalence by distance
+#-----------------------------
+pspdist <- ggplot(data=fit_sea_dist_ci,aes(x=dist_victoria/1000)) +
+  geom_line(aes(y=fit), color="gray40",lwd=0.3) +
+  # geom_ribbon(aes(ymin=lwrP,ymax=uprP),alpha=0.1,color=NA,fill="black") +
+  # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
+  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=cbPalette[3]) +
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
+  scale_x_continuous(breaks=0:5)+
+  # scale_color_manual(values=pcols)+
+  coord_cartesian(ylim=c(0,0.9),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y="community seroprevalence (%)") +
+  theme_minimal() +
+  theme(legend.position="none")
+pspdist
+
+# save png file
+ggsave(filename=here("output","mbita-SEA-seroprev-v-dist.png"),plot=pspdist,device="png",width=3*1.18,height=3)
+
+```
+
+## SEA FOI vs. distance
+```{r SEA FOI vs distance fig}
+#-----------------------------
+# FOI measured by SEA seroconversion over by distance
+#-----------------------------
+pfoidist <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda)) +
+  geom_point(alpha=1,color=cbPalette[3]) +
+  # geom_vline(xintercept = 1.5, lty = "dashed") +
+  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
+  scale_x_continuous(breaks=0:5)+
+  # scale_color_manual(values=pcols)+
+  coord_cartesian(ylim=c(0,0.65),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y=expression(paste("seroconversion rate per year (",lambda,")"))) +
+  theme_minimal() +
+  theme(legend.position="none")
+pfoidist
+
+# save png file
+ggsave(filename=here("output","mbita-SEA-foi-v-dist.png"),plot=pfoidist,device="png",width=3*1.18,height=3)
+```
+
+
+
+# Repeat figures, colored by intervention arm
+
+Repeat the figures above, coloring the points by intervention arm to ensure the patterns are not driven by community-level versus school-based praziquantle distribution
+
+```{r KK prev vs distance colored by arm fig}
+#-----------------------------
+# KK prevalence by distance
+# points colored by intervention arm
+#-----------------------------
+pkkdist2 <- ggplot(data=fit_kk_dist_ci,aes(x=dist_victoria/1000,color=arm)) +
+  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=kk_prev),alpha=0.9) +
+  geom_line(aes(y=fit), color="gray40",lwd=0.3) +
+  # geom_ribbon(aes(ymin=lwrP,ymax=uprP),alpha=0.1,color=NA,fill="black") +
+  # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
+  scale_x_continuous(breaks=0:5)+
+  scale_color_manual(values=cbPalette[c(4,8)])+
+  coord_cartesian(ylim=c(0,0.9),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y="community prevalence (%)") +
+  theme_minimal() +
+  theme(legend.position="right")
+pkkdist2
+```
+
+```{r SEA seroprev vs distance colored by arm fig}
+#-----------------------------
+# SEA seroprevalence by distance
+# points colored by intervention arm
+#-----------------------------
+pspdist2 <- ggplot(data=fit_sea_dist_ci,aes(x=dist_victoria/1000,color=arm)) +
+  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=sea_prev),alpha=0.9) +
+  geom_line(aes(y=fit), color="gray40",lwd=0.3) +
+  # geom_ribbon(aes(ymin=lwrP,ymax=uprP),alpha=0.1,color=NA,fill="black") +
+  # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
+  scale_x_continuous(breaks=0:5)+
+  scale_color_manual(values=cbPalette[c(4,8)])+
+  coord_cartesian(ylim=c(0,0.9),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y="community seroprevalence (%)") +
+  theme_minimal() +
+  theme(legend.position="right")
+pspdist2
+```
+
+
+```{r SEA FOI vs distance colored by arm fig}
+#-----------------------------
+# FOI measured by SEA seroconversion over by distance
+# points colored by intervention arm
+#-----------------------------
+pfoidist2 <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda,color=arm)) +
+  geom_point(alpha=0.9) +
+  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
+  scale_x_continuous(breaks=0:5)+
+  scale_color_manual(values=cbPalette[c(4,8)])+
+  coord_cartesian(ylim=c(0,0.65),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y=expression(paste("seroconversion rate per year (",lambda,")"))) +
+  theme_minimal() +
+  theme(legend.position="right")
+pfoidist2
+```
+
+
+# Session Info
+```{r session info}
+sessionInfo()
+```
+
+
