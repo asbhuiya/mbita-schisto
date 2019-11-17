@@ -340,6 +340,153 @@ saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
 ```
 
 
+# Relationship between FOI and seroprevalence with smaller samples
+
+There is a strong relationship between village-level seroprevalence and force of infection in the analyses above. To estimate force of infection, many observations are required, whereas estimating seroprevalence requires far fewer. 
+
+Examine the influence of reducing the number of samples per village used to estimate seroprevalence and Kato-Katz prevalence, and determine whether estimates are still correlated with village-level force of infection estimated in the full sample. 
+
+## Downsample seroprevalence estimates
+
+Within each downsample, estimate mean log10 MFI for SEA, SEA seroprevalence, and Kato-Katz prevalence.
+
+The procedure is repeated over 1000 replicates. 
+
+```{r community downsample}
+
+# estimate means with sample sizes of betweeen 20 and 200 observations
+set.seed(123)
+ssests <- foreach(ssi=seq(200,20,by=-20),.combine=rbind) %:% 
+  foreach(iteri=1:1000,.combine=rbind) %dopar% {
+    di <- d3 %>%
+    group_by(vid) %>%
+    sample_n(size = ssi,replace = TRUE) %>%
+    summarize(meanmfi = mean(logsea,na.rm=TRUE),
+              seroprev = mean(sea_pos,na.rm=TRUE),
+              kkprev = mean(kk_pos,na.rm=TRUE)
+              ) %>%
+    mutate(ss=ssi,iter=iteri)
+}
+
+# merge in the means with the full sample
+d4c <- d3c %>% 
+  dplyr::select(vid,true_mu=meansea,true_seroprev=prevsea,true_kkprev=prevkk,lambda)
+
+ssests2 <- left_join(ssests,d4c,by=c("vid"))
+
+```
+
+Across the 1000 downsample simulations, estimate the standard deviation of estimates, bootstrap 95% CIs, bias and mean squared error (MSE). 
+
+```{r downsample sim summarize simulation}
+# average over simulation replicates
+# calculate mean, standard deviation, percentile 95% CIs, bias and MSE
+ssmeans <- ssests2 %>%
+  group_by(vid,ss) %>%
+  summarize(
+            
+            # MFI
+            true_mu = mean(true_mu),
+            mu=mean(meanmfi),
+            mu_sd=sd(meanmfi),
+            mu_lb=quantile(meanmfi,probs=c(0.025)),
+            mu_ub=quantile(meanmfi,probs=c(0.975)),
+            mu_mse=mean((meanmfi-true_mu)^2),
+            mu_bias=mean(meanmfi-true_mu),
+            
+            # SEA seroprevalence
+            true_seroprev=mean(true_seroprev),
+            prevsea = mean(seroprev),
+            prevsea_sd = sd(seroprev),
+            prevsea_lb = quantile(seroprev,probs=c(0.025)),
+            prevsea_ub = quantile(seroprev,probs=c(0.975)),
+            prevsea_mse = mean((seroprev-true_seroprev)^2),
+            prevsea_bias = mean(seroprev-true_seroprev),
+            
+            # KK prevalence
+            true_kkprev=mean(true_kkprev),
+            prevkk = mean(kkprev),
+            prevkk_sd = sd(kkprev),
+            prevkk_lb=quantile(kkprev,probs=c(0.025)),
+            prevkk_ub=quantile(kkprev,probs=c(0.975)),
+            prevkk_mse=mean((kkprev-true_kkprev)^2),
+            prevkk_bias=mean(kkprev-true_kkprev)
+            )
+
+```
+
+Also estimate the correlation between community level FOI measured by SEA and the other community level measures.
+
+```{r downsample sim correlation between FOI and other measures}
+#-------------------------------
+# correlation betwen community-level means and FOI, 
+# over bootstrap estimates
+#-------------------------------
+sscorr_foi <- ssests2 %>%
+  group_by(ss,iter) %>%
+  filter(!is.na(lambda)) %>%
+  summarize(cor_mean=cor(meanmfi,lambda,method="spearman"),
+            cor_seroprev=cor(seroprev,lambda,method="spearman"),
+            cor_kkprev=cor(kkprev,lambda,method="spearman")) %>%
+  ungroup() %>%
+  group_by(ss) %>%
+  summarize(cor_musea=mean(cor_mean),
+            cor_musea_lb=quantile(cor_mean,probs=c(0.025)),
+            cor_musea_ub=quantile(cor_mean,probs=c(0.975)),
+            
+            cor_prevsea = mean(cor_seroprev),
+            cor_prevsea_lb = quantile(cor_seroprev,probs=c(0.025)),
+            cor_prevsea_ub = quantile(cor_seroprev,probs=c(0.975)),
+            
+            cor_prevkk = mean(cor_kkprev),
+            cor_prevkk_lb = quantile(cor_kkprev,probs=c(0.025)),
+            cor_prevkk_ub = quantile(cor_kkprev,probs=c(0.975))
+            )
+
+#-------------------------------
+# reshape long just to make
+# it easier to plot in ggplot
+#-------------------------------
+
+sscorr_foi_seamfi <- sscorr_foi %>%
+  dplyr::select(ss,cor = cor_musea, cor_lb = cor_musea_lb, cor_ub = cor_musea_ub) %>%
+  mutate(measure="SEA MFI")
+
+sscorr_foi_seaprev <- sscorr_foi %>%
+  dplyr::select(ss,cor = cor_prevsea, cor_lb = cor_prevsea_lb, cor_ub = cor_prevsea_ub) %>%
+  mutate(measure="SEA seroprevalence")
+
+sscorr_foi_kkprev <- sscorr_foi %>%
+  dplyr::select(ss,cor = cor_prevkk, cor_lb = cor_prevkk_lb, cor_ub = cor_prevkk_ub) %>%
+  mutate(measure="Kato-Katz prevalence")
+
+sscorr_foi_long <- bind_rows(sscorr_foi_seamfi,sscorr_foi_seaprev,sscorr_foi_kkprev) %>%
+  mutate(measure=factor(measure,levels=c("SEA MFI","SEA seroprevalence","Kato-Katz prevalence")))
+```
+
+Plot a figure of the correlation between the seroconversion rate estimated in the full sample versus cluster level mean (blue) or cluster level seroprevalence (orange) estimated at each smaller sample size
+
+```{r downsample corr foi figure}
+sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor,color=measure,fill=measure)) +
+  # geom_ribbon(aes(ymin=cor_mu_lb,ymax=cor_mu_ub),color=NA,fill=cblue,alpha=0.2)+
+  # geom_line(aes(y=cor_mu),color=cblue) +
+  # geom_ribbon(aes(ymin=cor_pr_lb,ymax=cor_pr_ub),color=NA,alpha=0.2)+
+  # geom_line(aes(y=cor_pr))+
+  facet_grid(~measure)+
+  geom_pointrange(aes(ymin=cor_lb,ymax=cor_ub))+
+  scale_fill_manual(values=cbPalette[c(2,3,6)])+
+  scale_color_manual(values=cbPalette[c(4,3,2)])+
+  scale_y_continuous(breaks=seq(0,1,by=0.1))+
+  scale_x_continuous(breaks=seq(20,200,by=40))+
+  coord_cartesian(ylim=c(0.7,1),xlim=c(20,200))+
+  labs(y=expression(paste("correlation with community seroconversion rate (",lambda,")")),x="sample size per community used to estimate the average") +
+  theme_minimal()+
+  theme(legend.position="none")
+sscorfoip
+
+```
+
+
 # Session Info
 ```{r session info}
 sessionInfo()
