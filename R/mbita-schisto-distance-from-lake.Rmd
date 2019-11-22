@@ -193,16 +193,25 @@ pkkdist
 ```{r SEA seroprev vs distance fig}
 #-----------------------------
 # SEA seroprevalence by distance
+#
+# color village points by <1500
+# and >1500m from the lake
+# to match age-stratified
+# curve figure aesthetics
 #-----------------------------
 pspdist <- ggplot(data=fit_sea_dist_ci,aes(x=dist_victoria/1000)) +
+  # approximate simultaneous confidence interval for the spline fit
+  geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
+  # spline fit
   geom_line(aes(y=fit), color="gray40",lwd=0.3) +
-  # geom_ribbon(aes(ymin=lwrP,ymax=uprP),alpha=0.1,color=NA,fill="black") +
-  # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
-  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=cbPalette[3]) +
+  # village means, <1500 m
+  geom_point(data=filter(dvil3,dist_victoria<1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=cbPalette[8]) +
+  # village means, >1500 m
+  geom_point(data=filter(dvil3,dist_victoria>=1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=cbPalette[4]) +
   scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
-  coord_cartesian(ylim=c(0,0.9),xlim=c(0,3.5)) +
+  coord_cartesian(ylim=c(0,1),xlim=c(0,3.5)) +
   labs(x="distance from lake Victoria (km)",y="community seroprevalence (%)") +
   theme_minimal() +
   theme(legend.position="none")
@@ -218,14 +227,18 @@ ggsave(filename=here("output","mbita-SEA-seroprev-v-dist.png"),plot=pspdist,devi
 #-----------------------------
 # FOI measured by SEA seroconversion over by distance
 #-----------------------------
-pfoidist <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda)) +
-  geom_point(alpha=1,color=cbPalette[3]) +
-  # geom_vline(xintercept = 1.5, lty = "dashed") +
-  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
+pfoidist <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda,ymin=lambda_lb,ymax=lambda_ub)) +
+  # village mean FOI for villages <1500m
+  # geom_point(data=filter(dvil3,dist_victoria<1500),alpha=1,color=cbPalette[8]) +
+  geom_pointrange(data=filter(dvil3,dist_victoria<1500),alpha=1,color=cbPalette[8]) +
+  # village mean FOI for villages >1500m
+  # geom_point(data=filter(dvil3,dist_victoria>=1500),alpha=1,color=cbPalette[4]) +
+  geom_pointrange(data=filter(dvil3,dist_victoria>=1500),alpha=1,color=cbPalette[4]) +
+  scale_y_continuous(breaks=seq(0,0.8,by=0.2))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
-  coord_cartesian(ylim=c(0,0.65),xlim=c(0,3.5)) +
-  labs(x="distance from lake Victoria (km)",y=expression(paste("seroconversion rate per year (",lambda,")"))) +
+  coord_cartesian(ylim=c(0,0.8),xlim=c(0,3.5)) +
+  labs(x="distance from lake Victoria (km)",y=expression(paste("community level force of infection (",lambda,")"))) +
   theme_minimal() +
   theme(legend.position="none")
 pfoidist
