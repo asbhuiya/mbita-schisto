@@ -399,6 +399,140 @@ foiplot2
 ggsave(filename=here("output","mbita-sea-age-foi-dist.png"),plot=foiplot2,device="png",width=3*1.18,height=3)
 ```
 
+# Sensitivity analysis of distance ranges
+
+Stratify the 30 villages into qunitiles of distance and repeat the age-dependent analyses
+
+## Separate communities into 5 groups by quintiles of distance
+```{r distance strata}
+#----------------------------------------
+# Identify distance qunitiles
+#----------------------------------------
+dvil <- d4 %>%
+  group_by(vid) %>%
+  slice(1) %>%
+  dplyr::select(vid,dist_victoria)
+
+dist_qs <- quantile(dvil$dist_victoria,probs=seq(0,1,by=0.2))
+
+dist_cat <- dvil %>%
+  mutate(distq = cut(dist_victoria,breaks=c(0,dist_qs[2:5],10000),labels=FALSE)) %>%
+  dplyr::select(vid,distq) %>%
+  mutate(distq=factor(distq,levels=1:5,labels=paste0("Q",1:5)))
+  
+```
+
+## Fit a stratified seroprevalence model by quntiles
+
+```{r analysis by distq}
+#-----------------------------
+# create indicators for 
+# children living in qunitiles
+# of distance from lake victoria.
+#-----------------------------
+d5 <- d4 %>%
+  left_join(dist_cat,by="vid") %>%
+  mutate(dq1 = ifelse(distq=="Q1",1,0),
+         dq2 = ifelse(distq=="Q2",1,0),
+         dq3 = ifelse(distq=="Q3",1,0),
+         dq4 = ifelse(distq=="Q4",1,0),
+         dq5 = ifelse(distq=="Q5",1,0),
+         )
+
+#----------------------------------------
+# fit a model allowing age-specific
+# seroprevalence to vary by group
+#----------------------------------------
+fitp_distq <- mgcv::gam(sea_pos~s(agey,bs="cr",k=5,by=dq1) +
+                          s(agey,bs="cr",k=5,by=dq2) +
+                          s(agey,bs="cr",k=5,by=dq3) +
+                          s(agey,bs="cr",k=5,by=dq4) +
+                          s(agey,bs="cr",k=5,by=dq5) +
+                          s(vid,bs="re",by=dummy),
+                       family="binomial",
+                       data=d5)
+
+#----------------------------------------
+# prediction datasets with distance set to each quintile
+#----------------------------------------
+newd1 <- d5 %>%  mutate(dummy=0,dq1=1,dq2=0,dq3=0,dq4=0,dq5=0)
+newd2 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=1,dq3=0,dq4=0,dq5=0)
+newd3 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=0,dq3=1,dq4=0,dq5=0)
+newd4 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=0,dq3=0,dq4=1,dq5=0)
+newd5 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=0,dq3=0,dq4=0,dq5=1)
+
+#----------------------------------------
+# estimate fitted values and simultaneous 95% CIs for each
+# distance qunitile. Note, all curves are age-standardized across
+# the entire study population
+#----------------------------------------
+fitp_distq1_ci <- gamCI(m=fitp_distq,newdata=newd1,nreps=10000)
+fitp_distq2_ci <- gamCI(m=fitp_distq,newdata=newd2,nreps=10000)
+fitp_distq3_ci <- gamCI(m=fitp_distq,newdata=newd3,nreps=10000)
+fitp_distq4_ci <- gamCI(m=fitp_distq,newdata=newd4,nreps=10000)
+fitp_distq5_ci <- gamCI(m=fitp_distq,newdata=newd5,nreps=10000)
+
+#----------------------------------------
+# convert linear predictor to prevalance
+#----------------------------------------
+fitp_distq_ci <- bind_rows(fitp_distq1_ci,fitp_distq2_ci,fitp_distq3_ci,fitp_distq4_ci,fitp_distq5_ci) %>%
+  mutate(fit = expitfn(fit),
+         uprP = expitfn(uprP),
+         lwrP = expitfn(lwrP),
+         uprS = expitfn(uprS),
+         lwrS = expitfn(lwrS),
+         )
+
+#----------------------------------------
+# format distance qunitile variable
+# for plotting
+#----------------------------------------
+dist_qs_labs <- c(
+  paste0("Q1: (",sprintf("%1.0f",dist_qs[1])," - ",sprintf("%1.0f",dist_qs[2]),"]"),
+  paste0("Q2: (",sprintf("%1.0f",dist_qs[2])," - ",sprintf("%1.0f",dist_qs[3]),"]"),
+  paste0("Q3: (",sprintf("%1.0f",dist_qs[3])," - ",sprintf("%1.0f",dist_qs[4]),"]"),
+  paste0("Q4: (",sprintf("%1.0f",dist_qs[4])," - ",sprintf("%1.0f",dist_qs[5]),"]"),
+  paste0("Q5: (",sprintf("%1.0f",dist_qs[4])," - ",sprintf("%1.0f",max(dvil$dist_victoria)),"]")
+)
+
+fitp_distq_ci <- fitp_distq_ci %>%
+    mutate(distq = NA,
+         distq = ifelse(dq1 == 1,dist_qs_labs[1],distq),
+         distq = ifelse(dq2 == 1,dist_qs_labs[2],distq),
+         distq = ifelse(dq3 == 1,dist_qs_labs[3],distq),
+         distq = ifelse(dq4 == 1,dist_qs_labs[4],distq),
+         distq = ifelse(dq5 == 1,dist_qs_labs[5],distq)
+  )
+
+```
+
+## Figure of seroprevalence by age, stratified by distance quintiles
+
+```{r figure of SEA seroprevalence by age stratified by distance qunitiles}
+
+#----------------------------------------
+# seroprevalence curves
+#----------------------------------------
+distqcols <- cbPalette[c(3,2,4,7,6)]
+pageprev_sea_distq <- ggplot(data=fitp_distq_ci,aes(x=agey,y=fit,group=distq,color=distq,fill=distq)) +
+  # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.2,color=NA) +
+  geom_line(lwd=0.5,alpha=1) +
+  scale_color_manual(values=distqcols,guide=guide_legend(title="distance quintile (m)"))+
+  scale_fill_manual(values=distqcols,guide=FALSE)+
+  scale_y_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
+  labs(x="age, years",y="seroprevalence (%)") +
+  coord_cartesian(ylim=c(0,1),xlim=c(0,5))+
+  theme_minimal() +
+  theme(legend.position=c(0.3,0.8),
+        legend.text = element_text(size=8),
+        legend.key.height= unit(0.3,units="cm"))
+
+pageprev_sea_distq
+
+# save png file
+ggsave(filename=here("output","mbita-sea-age-seroprev-distq.png"),plot=pageprev_sea_distq,device="png",width=3*1.18,height=3)
+
+```
 
 # Session Info
 ```{r session info}
