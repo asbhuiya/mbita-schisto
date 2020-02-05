@@ -16,6 +16,7 @@ library(tidyverse)
 library(scales)
 library(grid)
 library(gridExtra)
+library(kableExtra)
 
 # spatial
 library(sp)
