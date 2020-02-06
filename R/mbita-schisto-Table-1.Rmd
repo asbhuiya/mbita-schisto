@@ -89,9 +89,20 @@ dvil2 <- d3 %>%
 
 # Basic summary of measurements
 
-Summarize number of DBS and stool samples by year.  
+Summarize number of DBS and stool samples by year and by age.
+
+First, tally the number of measurements per village (summary statistics).
 
 ```{r number of obs}
+#------------------------------
+# summarize number of children 
+# measured per village
+#------------------------------
+summary(as.numeric(table(d$vid)))
+
+#------------------------------
+# summarize measurements per year
+#------------------------------
 dtab_yr <- d3 %>%
   group_by(year) %>%
   summarize(ndbs = sum(!is.na(sea_pos)),
@@ -104,6 +115,9 @@ dtab_yr <- d3 %>%
   ) %>%
   dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
 
+#------------------------------
+# measurements by age group
+#------------------------------
 dtab_age <- d3 %>%
   group_by(agecat) %>%
   summarize(ndbs = sum(!is.na(sea_pos)),
@@ -116,6 +130,9 @@ dtab_age <- d3 %>%
   ) %>%
   dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
 
+#------------------------------
+# total number of measurements
+#------------------------------
 dtab_tot <- d3 %>%
   summarize(ndbs = sum(!is.na(sea_pos)),
             seapos = sum(sea_pos),
@@ -132,12 +149,16 @@ dtab_all <- bind_rows(dtab_tot,dtab_age, dtab_yr)
 
 
 ```{r summary table}
+#------------------------------
+# print an HTML summary table
+#------------------------------
 knitr::kable(dtab_all,digits=0,escape=FALSE,
              caption="Table 1. Number of children and samples tested, stratified by age and by year.",
-             col.names=c("","N<br>Blood<br>Samples","Sero-<br>prevalence<br>(%)","N<br>Stool<br>Samples","Kato-Katz<br>Prevalence<br>(%)")) %>%
+             col.names=c("","N Samples","(%)","N Samples","(%)")) %>%
   kable_styling(bootstrap_options = c("striped","condensed"),full_width = TRUE) %>%
+  add_header_above(c(" " = 1, "SEA Seroprevalence" = 2, "Kato-Katz Prevalence" = 2)) %>%
   group_rows("", 1,1) %>%
-  group_rows("Age", 2,6) %>%
+  group_rows("Age (years completed)", 2,6) %>%
   group_rows("Year", 7,9)
 
 ```
