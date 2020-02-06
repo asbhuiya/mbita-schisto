@@ -38,15 +38,19 @@ NOTE: This script is provided for completness but cannot be run publicly because
 d <- readRDS(here("data","mbita_psac.rds"))
 
 d2 <- d %>%
-  dplyr::select(year,vid,arm,pid,agey,sex,sea,sm_epg)
+  dplyr::select(year,vid,arm,pid,agey,sex,sea,sm25,sm_epg)
 
 #---------------------------
 # identify seropositive by
-# SEA using ROC cutoff
+# SEA and Sm25 using ROC cutoff
+# these cutoffs were provided
+# by Kim Won in the file
+# Mbita cutoff table for Ben.xlsx
 #---------------------------
 d2 <- d2 %>%
   mutate(
     sea_pos = ifelse(sea>965,1,0),
+    sm25_pos = ifelse(sm25>38,1,0),
     kk_pos = ifelse(sm_epg>0,1,0)
   )
 
