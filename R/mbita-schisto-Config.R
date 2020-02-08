@@ -14,6 +14,8 @@
 # general
 library(tidyverse)
 library(scales)
+library(RColorBrewer)
+library(ellipse)
 library(grid)
 library(gridExtra)
 library(kableExtra)

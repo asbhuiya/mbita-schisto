@@ -242,7 +242,72 @@ saveRDS(dvil_spatial,file=here("data","mbita_spatial.rds"))
 
 
 ```
+# Assess bivariate relationships between covariates and outcomes
 
+```{r covariate pairs plot, fig.width=8,fig.height=8}
+#----------------------------------
+# correlation ellipse
+#----------------------------------
+myellipse<-function(x,y,...){
+  maxx <- max(x,na.rm=TRUE)
+  minx <- min(x,na.rm=TRUE)
+  maxy <- max(y,na.rm=TRUE)
+  miny <- min(y,na.rm=TRUE)
+  midx <- (maxx+minx)/2
+  midy <- (maxy+miny)/2
+  corxy <- cor(x,y,method="spearman",use="pairwise.complete.obs")
+  colgroup<-cut(corxy,breaks=seq(-1,1,length=11),labels=F)
+  brewcols <- brewer.pal(n=11,"RdYlGn")
+  cols<-brewcols[colgroup]
+  xyc <-sprintf("%1.2f",corxy)
+  xyc[grep("NA",xyc)]<-""
+  exy <- ellipse(corxy,centre=c(midx,midy),scale=c((maxx-minx)/6,(maxy-miny)/6))
+  polygon(exy,col=alpha(cols,alpha=0.5))
+  lines(exy)
+  if(!is.na(corxy)) {
+    if(corxy<0.8) {
+      text(midx,midy,xyc,cex=0.8)
+    } else{
+      text(maxx,midy-((maxy-miny)/3),xyc,cex=0.8,adj=1)
+    }
+  }
+  
+}
+
+
+#----------------------------------
+# scatter plot with loess fit
+# (trimmed to reduce edge effects)
+#----------------------------------
+scatterloess<-function(x,y,cex=0.4,...){
+  ld <- data.frame(x,y)
+  ld <- ld[complete.cases(ld),]
+  if(nrow(ld)>0) {
+    points(ld$x,ld$y,pch=19,cex=cex,col=alpha('black',alpha=1))
+    lfit <- loess(y~x,data=ld)
+    xqs <- quantile(x,probs=c(0.01,0.99),na.rm=TRUE)
+    px <- seq(xqs[1],xqs[2],by=0.01)
+    py <- predict(lfit,newdata=data.frame(x=px))
+    lines(px,py,col="gray20",lwd=1.5)
+  }
+  
+}
+
+
+# Pairs plot
+hmat <- dvil2 %>%
+  ungroup() %>%
+  dplyr::select(sea_prev,kk_prev,dist_victoria,elev,tmin,prec)
+
+# correlation matrix
+round(cor(hmat,method="spearman"),3)
+
+pairs(hmat,cex=0.4,las=1, 
+      upper.panel=scatterloess,
+      lower.panel=myellipse
+)
+
+```
 
 # Maps
 
@@ -254,21 +319,21 @@ The predictions below are prevalence. In addition to a village's location, the m
 ### SEA geospatial model fit
 ```{r model sea seroprevalence}
 # gaussian process / spline model fit
-# village-level random effects
-# (use of by=dummy enables us to zero-out random effects in predictions)
+# village-level data
 dvil3 <- dvil %>%
   mutate(dummy = 1,
          vidf = factor(vid,levels=unique(dvil$vid))
          )
 
-
-fit_sea <- gam(cbind(sea_n,sea_N-sea_n) ~ s(lat,lon, k=-1,bs="gp") + s(dist_victoria,k=3) + s(elev,k=3) + s(tmin,k=3) + s(prec,k=3) , 
+#  + s(elev,k=3)
+fit_sea <- gam(cbind(sea_n,sea_N-sea_n) ~ s(lat,lon, k=-1,bs="gp") + s(dist_victoria,k=3) + s(tmin,k=3) + s(prec,k=3) , 
                    family="binomial",
                    data=dvil3,
                    method="REML",
                    select=TRUE)
 
-#  s(lat,lon, k=-1,bs="gp")  + s(lat,lon, k=-1,bs="gp") + s(elev,k=3) + s(dist_victoria,k=3) + s(tmin,k=3) + s(prec,k=3) + yearf + s(vidf,bs="re",by=dummy)
+# summarize model output
+summary(fit_sea)
 
 ```
 
@@ -290,16 +355,14 @@ rast_sea <- SpatialPixelsDataFrame(points=pred_grid[c("lon","lat")],data=data.fr
 ### KK geospatial model fit
 ```{r model kato-katz prevalence}
 # gaussian process / spline model fit
-# village-level random effects 
-# (use of by=dummy enables us to zero-out random effects in predictions)
-# + yearf + s(vidf,bs="re",by=dummy),
-
-fit_kk <- gam(cbind(kk_n,kk_N-kk_n) ~ s(lat,lon, k=-1,bs="gp") + s(elev,k=3) + s(dist_victoria,k=3) + s(tmin,k=3) + s(prec,k=3),  
+#  s(elev,k=3) +
+fit_kk <- gam(cbind(kk_n,kk_N-kk_n) ~ s(lat,lon, k=-1,bs="gp") + s(dist_victoria,k=3) + s(tmin,k=3) + s(prec,k=3),  
                    family="binomial",
                    data=dvil3,
                    method="REML",
                    select=TRUE)
 
+summary(fit_kk)
 
 
 ```
