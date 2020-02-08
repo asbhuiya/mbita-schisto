@@ -42,8 +42,8 @@ d <- readRDS(here("data","mbita_schisto.rds") )
 d2 <- d %>%
   mutate(agecat = cut(agey,breaks=c(0,1,2,3,4,6),
                       labels=c("<1 year","1 year","2 years","3 years","4 years")),
-         logsea = log10(sea),
-         logepg = log10(sm_epg)         
+         logsea = ifelse(sea<=0,log10(1),log10(sea)),
+         logepg = ifelse(sm_epg<=0,log10(1),log10(sm_epg))         
          )
 
 # create factor variables for modeling (used below)
@@ -86,7 +86,6 @@ dvil2 <- d3 %>%
          kk_prev = kk_n/kk_N)
 
 ```
-
 
 # Correlation between measures and over years
 
@@ -289,7 +288,7 @@ d3c <- d3 %>%
             meansea = mean(logsea),
             prevsea = mean(sea_pos),
             nkk = sum(nkk),
-            meankk = mean(ifelse(logepg<0,1,logepg),na.rm=T),
+            meankk = mean(logepg,na.rm=T),
             prevkk = mean(kk_pos,na.rm=T)
             )
              
@@ -313,7 +312,7 @@ sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
   geom_point(color=cbPalette[3],alpha=0.9) +
   geom_smooth(method="loess",se=FALSE,color="black",lwd=0.5) +
   scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
-  coord_cartesian(ylim=c(0,1),xlim=c(1.0,1.5))+
+  coord_cartesian(ylim=c(0,1),xlim=c(0,1.05))+
   labs(x="",y="SEA seroprevalence (%)") +
   theme(panel.grid.minor.y=element_blank())
 
@@ -322,7 +321,7 @@ foi_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=lambda)) +
   geom_smooth(method="loess",se=FALSE,color="gray40",lwd=0.25) +
   geom_smooth(method="glm",se=FALSE,color="black",lwd=0.5) +
   scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
-  coord_cartesian(ylim=c(0,0.65),xlim=c(1.0,1.5))+
+  coord_cartesian(ylim=c(0,0.65),xlim = c(0,1.05))+
   labs(x="mean log10 S. mansoni eggs per gram",y=expression(paste("force of infection (",lambda,"), seroconversion rate per year")) ,eval=TRUE)
 
 
@@ -344,11 +343,11 @@ saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
 
 There is a strong relationship between village-level seroprevalence and force of infection in the analyses above. To estimate force of infection, many observations are required, whereas estimating seroprevalence requires far fewer. 
 
-Examine the influence of reducing the number of samples per village used to estimate seroprevalence and Kato-Katz prevalence, and determine whether estimates are still correlated with village-level force of infection estimated in the full sample. 
+Examine the influence of reducing the number of samples per village used to estimate mean SEA MFI and seroprevalence, and mean Kato-Katz EPG and prevalence.  Determine whether estimates are still correlated with village-level force of infection estimated in the full sample. 
 
 ## Downsample seroprevalence estimates
 
-Within each downsample, estimate mean log10 MFI for SEA, SEA seroprevalence, and Kato-Katz prevalence.
+Consider the effect of smaller samples by resampling with replacement between 20 and 200 children per village from the empirical data. Within each sample, estimate mean log10 MFI for SEA, SEA seroprevalence, and Kato-Katz eggs per gram (EPG) and prevalence.
 
 The procedure is repeated over 1000 replicates. 
 
@@ -363,14 +362,15 @@ ssests <- foreach(ssi=seq(200,20,by=-20),.combine=rbind) %:%
     sample_n(size = ssi,replace = TRUE) %>%
     summarize(meanmfi = mean(logsea,na.rm=TRUE),
               seroprev = mean(sea_pos,na.rm=TRUE),
-              kkprev = mean(kk_pos,na.rm=TRUE)
+              kkprev = mean(kk_pos,na.rm=TRUE),
+              kkmean = mean(logepg,na.rm=TRUE)
               ) %>%
     mutate(ss=ssi,iter=iteri)
 }
 
 # merge in the means with the full sample
 d4c <- d3c %>% 
-  dplyr::select(vid,true_mu=meansea,true_seroprev=prevsea,true_kkprev=prevkk,lambda)
+  dplyr::select(vid,true_mu=meansea,true_seroprev=prevsea,true_kkprev=prevkk,true_kkmean=meankk, lambda)
 
 ssests2 <- left_join(ssests,d4c,by=c("vid"))
 
@@ -403,6 +403,15 @@ ssmeans <- ssests2 %>%
             prevsea_mse = mean((seroprev-true_seroprev)^2),
             prevsea_bias = mean(seroprev-true_seroprev),
             
+            # KK EPG
+            true_kkmu=mean(true_kkmean),
+            meankk = mean(kkmean),
+            meankk_sd = sd(kkmean),
+            meankk_lb=quantile(kkmean,probs=c(0.025)),
+            meankk_ub=quantile(kkmean,probs=c(0.975)),
+            meankk_mse=mean((kkmean-true_kkmean)^2),
+            meankk_bias=mean(kkprev-true_kkmean),
+            
             # KK prevalence
             true_kkprev=mean(true_kkprev),
             prevkk = mean(kkprev),
@@ -422,12 +431,15 @@ Also estimate the correlation between community level FOI measured by SEA and th
 # correlation betwen community-level means and FOI, 
 # over bootstrap estimates
 #-------------------------------
-sscorr_foi <- ssests2 %>%
+sscorr_foi1 <- ssests2 %>%
   group_by(ss,iter) %>%
   filter(!is.na(lambda)) %>%
   summarize(cor_mean=cor(meanmfi,lambda,method="spearman"),
             cor_seroprev=cor(seroprev,lambda,method="spearman"),
-            cor_kkprev=cor(kkprev,lambda,method="spearman")) %>%
+            cor_kkmean=cor(kkmean,lambda,method="spearman"),
+            cor_kkprev=cor(kkprev,lambda,method="spearman")) 
+
+sscorr_foi2 <- sscorr_foi1 %>%
   ungroup() %>%
   group_by(ss) %>%
   summarize(cor_musea=mean(cor_mean),
@@ -437,6 +449,10 @@ sscorr_foi <- ssests2 %>%
             cor_prevsea = mean(cor_seroprev),
             cor_prevsea_lb = quantile(cor_seroprev,probs=c(0.025)),
             cor_prevsea_ub = quantile(cor_seroprev,probs=c(0.975)),
+            
+            cor_meankk = mean(cor_kkmean),
+            cor_meankk_lb = quantile(cor_kkmean,probs=c(0.025)),
+            cor_meankk_ub = quantile(cor_kkmean,probs=c(0.975)),
             
             cor_prevkk = mean(cor_kkprev),
             cor_prevkk_lb = quantile(cor_kkprev,probs=c(0.025)),
@@ -448,34 +464,51 @@ sscorr_foi <- ssests2 %>%
 # it easier to plot in ggplot
 #-------------------------------
 
-sscorr_foi_seamfi <- sscorr_foi %>%
+sscorr_foi_seamfi <- sscorr_foi2 %>%
   dplyr::select(ss,cor = cor_musea, cor_lb = cor_musea_lb, cor_ub = cor_musea_ub) %>%
   mutate(measure="SEA MFI")
 
-sscorr_foi_seaprev <- sscorr_foi %>%
+sscorr_foi_seaprev <- sscorr_foi2 %>%
   dplyr::select(ss,cor = cor_prevsea, cor_lb = cor_prevsea_lb, cor_ub = cor_prevsea_ub) %>%
   mutate(measure="SEA seroprevalence")
 
-sscorr_foi_kkprev <- sscorr_foi %>%
+sscorr_foi_kkmean <- sscorr_foi2 %>%
+  dplyr::select(ss,cor = cor_meankk, cor_lb = cor_meankk_lb, cor_ub = cor_meankk_ub) %>%
+  mutate(measure="Kato-Katz EPG")
+
+sscorr_foi_kkprev <- sscorr_foi2 %>%
   dplyr::select(ss,cor = cor_prevkk, cor_lb = cor_prevkk_lb, cor_ub = cor_prevkk_ub) %>%
   mutate(measure="Kato-Katz prevalence")
 
-sscorr_foi_long <- bind_rows(sscorr_foi_seamfi,sscorr_foi_seaprev,sscorr_foi_kkprev) %>%
-  mutate(measure=factor(measure,levels=c("SEA MFI","SEA seroprevalence","Kato-Katz prevalence")))
+sscorr_foi_long <- bind_rows(sscorr_foi_seamfi,sscorr_foi_seaprev,sscorr_foi_kkmean,sscorr_foi_kkprev) %>%
+  mutate(measure=factor(measure,levels=c("SEA MFI","SEA seroprevalence","Kato-Katz EPG","Kato-Katz prevalence")))
+
+sscorr_foi_long_reps <- sscorr_foi1 %>%
+  pivot_longer(cols = starts_with("cor_"), names_to = "outcome", names_prefix = "cor_",values_to = "cor") %>%
+  mutate(measure = case_when (
+    outcome == "kkmean" ~ "Kato-Katz EPG",
+    outcome == "kkprev" ~ "Kato-Katz prevalence",
+    outcome == "mean"   ~ "SEA MFI",
+    outcome == "seroprev" ~ "SEA seroprevalence"
+  ),
+  measure = factor(measure, levels = c("SEA MFI","SEA seroprevalence","Kato-Katz EPG","Kato-Katz prevalence"))
+         )
 ```
 
 Plot a figure of the correlation between the seroconversion rate estimated in the full sample versus cluster level mean (blue) or cluster level seroprevalence (orange) estimated at each smaller sample size
 
 ```{r downsample corr foi figure}
-sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor,color=measure,fill=measure)) +
+sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor)) +
   # geom_ribbon(aes(ymin=cor_mu_lb,ymax=cor_mu_ub),color=NA,fill=cblue,alpha=0.2)+
   # geom_line(aes(y=cor_mu),color=cblue) +
   # geom_ribbon(aes(ymin=cor_pr_lb,ymax=cor_pr_ub),color=NA,alpha=0.2)+
   # geom_line(aes(y=cor_pr))+
   facet_grid(~measure)+
-  geom_pointrange(aes(ymin=cor_lb,ymax=cor_ub))+
-  scale_fill_manual(values=cbPalette[c(2,3,6)])+
-  scale_color_manual(values=cbPalette[c(4,3,2)])+
+  geom_jitter(data=sscorr_foi_long_reps, aes(x = ss, y= cor), col = cbPalette[7],alpha=0.2,size =0.1,width=7)+
+  geom_errorbar(aes(ymin=cor_lb,ymax=cor_ub))+
+  geom_point(pch=19)+
+  scale_fill_manual(values=cbPalette[c(7,7,7,7)])+
+  scale_color_manual(values=cbPalette[c(7,7,7,7)])+
   scale_y_continuous(breaks=seq(0,1,by=0.1))+
   scale_x_continuous(breaks=seq(20,200,by=40))+
   coord_cartesian(ylim=c(0.7,1),xlim=c(20,200))+
@@ -483,6 +516,8 @@ sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor,color=measure,fill=measu
   theme_minimal()+
   theme(legend.position="none")
 sscorfoip
+
+ggsave(filename=here("output","mbita-village-foi-correlation-ss-sim.png"),plot=sscorfoip,device="png",width=8,height=4)
 
 ```
 
