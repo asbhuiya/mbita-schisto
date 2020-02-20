@@ -43,7 +43,7 @@ d2 <- d %>%
   mutate(agecat = cut(agey,breaks=c(0,1,2,3,4,6),
                       labels=c("<1 year","1 year","2 years","3 years","4 years")),
          logsea = ifelse(sea<=0,log10(1),log10(sea)),
-         logepg = ifelse(sm_epg<=0,log10(1),log10(sm_epg))         
+         logepg = ifelse(sm_epg<=0,log10(1),log10(sm_epg))
          )
 
 # create factor variables for modeling (used below)
@@ -258,7 +258,7 @@ $\log - \log(1-P(Y|A,W)) = \log \lambda + \log A + \beta W$
 Moroever, this model is also equivalent to a catalytic, SIR model with a single, constant rate parameter (*Hens et al. 2010*; *Hens et al. 2012*).
 
 ```{r  foi from exponential model}
-foi_ests <- foreach(comi=levels(d3$vid),.combine=rbind) %dopar% {
+foi_ests <- foreach(comi=levels(d3$vid),.combine=rbind) %do% {
   di <- d3 %>% filter(vid==comi)
   gfit <- glm(sea_pos~1,offset=log(agey),data=di,family=binomial(link="cloglog"))
   gsum <- summary(gfit)
@@ -354,9 +354,9 @@ The procedure is repeated over 1000 replicates.
 ```{r community downsample}
 
 # estimate means with sample sizes of betweeen 20 and 200 observations
-set.seed(123)
 ssests <- foreach(ssi=seq(200,20,by=-20),.combine=rbind) %:% 
   foreach(iteri=1:1000,.combine=rbind) %dopar% {
+    set.seed(iteri)
     di <- d3 %>%
     group_by(vid) %>%
     sample_n(size = ssi,replace = TRUE) %>%
@@ -466,7 +466,7 @@ sscorr_foi2 <- sscorr_foi1 %>%
 
 sscorr_foi_seamfi <- sscorr_foi2 %>%
   dplyr::select(ss,cor = cor_musea, cor_lb = cor_musea_lb, cor_ub = cor_musea_ub) %>%
-  mutate(measure="SEA MFI")
+  mutate(measure="SEA MFI-bg")
 
 sscorr_foi_seaprev <- sscorr_foi2 %>%
   dplyr::select(ss,cor = cor_prevsea, cor_lb = cor_prevsea_lb, cor_ub = cor_prevsea_ub) %>%
@@ -481,38 +481,39 @@ sscorr_foi_kkprev <- sscorr_foi2 %>%
   mutate(measure="Kato-Katz prevalence")
 
 sscorr_foi_long <- bind_rows(sscorr_foi_seamfi,sscorr_foi_seaprev,sscorr_foi_kkmean,sscorr_foi_kkprev) %>%
-  mutate(measure=factor(measure,levels=c("SEA MFI","SEA seroprevalence","Kato-Katz EPG","Kato-Katz prevalence")))
+  mutate(measure=factor(measure,levels=c("SEA MFI-bg","SEA seroprevalence","Kato-Katz EPG","Kato-Katz prevalence")))
 
 sscorr_foi_long_reps <- sscorr_foi1 %>%
   pivot_longer(cols = starts_with("cor_"), names_to = "outcome", names_prefix = "cor_",values_to = "cor") %>%
   mutate(measure = case_when (
     outcome == "kkmean" ~ "Kato-Katz EPG",
     outcome == "kkprev" ~ "Kato-Katz prevalence",
-    outcome == "mean"   ~ "SEA MFI",
+    outcome == "mean"   ~ "SEA MFI-bg",
     outcome == "seroprev" ~ "SEA seroprevalence"
   ),
-  measure = factor(measure, levels = c("SEA MFI","SEA seroprevalence","Kato-Katz EPG","Kato-Katz prevalence"))
+  measure = factor(measure, levels = c("SEA MFI-bg","SEA seroprevalence","Kato-Katz EPG","Kato-Katz prevalence"))
          )
 ```
 
-Plot a figure of the correlation between the seroconversion rate estimated in the full sample versus cluster level mean (blue) or cluster level seroprevalence (orange) estimated at each smaller sample size
+Plot a figure of the correlation between the seroconversion rate estimated in the full sample versus cluster level SEA mean MFI-bg or seroprevalence (blue) or cluster level mean EPG or prevalence by Kato-Katz (orange) estimated at each smaller sample size
 
 ```{r downsample corr foi figure}
-sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor)) +
+pcols <- cbPalette[c(2,6,3,7)]
+sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor, color = measure)) +
   # geom_ribbon(aes(ymin=cor_mu_lb,ymax=cor_mu_ub),color=NA,fill=cblue,alpha=0.2)+
   # geom_line(aes(y=cor_mu),color=cblue) +
   # geom_ribbon(aes(ymin=cor_pr_lb,ymax=cor_pr_ub),color=NA,alpha=0.2)+
   # geom_line(aes(y=cor_pr))+
   facet_grid(~measure)+
-  geom_jitter(data=sscorr_foi_long_reps, aes(x = ss, y= cor), col = cbPalette[7],alpha=0.2,size =0.1,width=7)+
+  # geom_jitter(data=sscorr_foi_long_reps %>% filter(iter<=500), aes(x = ss, y= cor), col = cbPalette[7],alpha=0.2,size =0.1,width=5)+
   geom_errorbar(aes(ymin=cor_lb,ymax=cor_ub))+
   geom_point(pch=19)+
-  scale_fill_manual(values=cbPalette[c(7,7,7,7)])+
-  scale_color_manual(values=cbPalette[c(7,7,7,7)])+
+  scale_fill_manual(values=cbPalette[c(3,6,2,7)])+
+  scale_color_manual(values=cbPalette[c(3,6,2,7)])+
   scale_y_continuous(breaks=seq(0,1,by=0.1))+
   scale_x_continuous(breaks=seq(20,200,by=40))+
   coord_cartesian(ylim=c(0.7,1),xlim=c(20,200))+
-  labs(y=expression(paste("correlation with community seroconversion rate (",lambda,")")),x="sample size per community used to estimate the average") +
+  labs(y=expression(paste("correlation with community force of infection (",lambda,")")),x="sample size per community used to estimate the average") +
   theme_minimal()+
   theme(legend.position="none")
 sscorfoip
