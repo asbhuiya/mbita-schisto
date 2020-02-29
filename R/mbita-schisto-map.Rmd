@@ -266,9 +266,9 @@ myellipse<-function(x,y,...){
   lines(exy)
   if(!is.na(corxy)) {
     if(corxy<0.8) {
-      text(midx,midy,xyc,cex=0.8)
+      text(midx,midy,xyc,cex=1.3)
     } else{
-      text(maxx,midy-((maxy-miny)/3),xyc,cex=0.8,adj=1)
+      text(maxx,midy-((maxy-miny)/3),xyc,cex=1.3,adj=1)
     }
   }
   
@@ -293,20 +293,39 @@ scatterloess<-function(x,y,cex=0.4,...){
   
 }
 
-
-# Pairs plot
+#----------------------------------
+# Subset variables for pairs plot
+#----------------------------------
 hmat <- dvil2 %>%
   ungroup() %>%
   dplyr::select(sea_prev,kk_prev,dist_victoria,elev,tmin,prec)
 
-# correlation matrix
+#----------------------------------
+# print correlation matrix
+#----------------------------------
 round(cor(hmat,method="spearman"),3)
 
+
+#----------------------------------
+# Make a pairs plot
+#----------------------------------
+pairs_labs <- c("SEA\nseroprevalence","Kato-Katz\nprevalence","Distance to\nLake Victoria","Elevation","Temperature","Precipitation")
 pairs(hmat,cex=0.4,las=1, 
+      labels = pairs_labs,
       upper.panel=scatterloess,
       lower.panel=myellipse
 )
 
+```
+
+```{r output pairs plot, eval=TRUE,echo=FALSE,warnings=FALSE}
+pdf(here("output","mbita-covariate-pairs.pdf"),width=10,height=10)
+pairs(hmat,cex=0.4,las=1, 
+      labels = pairs_labs,
+      upper.panel=scatterloess,
+      lower.panel=myellipse
+)
+dev.off()
 ```
 
 # Maps
