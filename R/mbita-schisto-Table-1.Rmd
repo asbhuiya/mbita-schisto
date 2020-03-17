@@ -40,8 +40,8 @@ d <- readRDS(here("data","mbita_schisto.rds") )
 # create log values for SEA MFI and KK epg
 # convert the dist_victoria variable from class units to numeric
 d2 <- d %>%
-  mutate(agecat = cut(agey,breaks=c(0,1,2,3,4,6),
-                      labels=c("<1 year","1 year","2 years","3 years","4 years")),
+  mutate(agecat = cut(agey,breaks=c(0,1,2,3,4,5,6),
+                      labels=c("<1 year","1 year","2 years","3 years","4 years","5 years")),
          logsea = log10(sea),
          logepg = log10(sm_epg)         
          )
@@ -158,8 +158,8 @@ knitr::kable(dtab_all,digits=0,escape=FALSE,
   kable_styling(bootstrap_options = c("striped","condensed"),full_width = TRUE) %>%
   add_header_above(c(" " = 1, "SEA Seroprevalence" = 2, "Kato-Katz Prevalence" = 2)) %>%
   group_rows("", 1,1) %>%
-  group_rows("Age (years completed)", 2,6) %>%
-  group_rows("Year", 7,9)
+  group_rows("Age (years completed)", 2,7) %>%
+  group_rows("Year", 8,10)
 
 ```
 
