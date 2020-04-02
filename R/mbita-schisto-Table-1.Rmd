@@ -112,8 +112,8 @@ dtab_yr <- d3 %>%
   mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
          desc = as.character(year)
-  ) %>%
-  dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
+  ) #%>%
+  # dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
 
 #------------------------------
 # measurements by age group
@@ -127,8 +127,8 @@ dtab_age <- d3 %>%
   mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
          desc = as.character(agecat)
-  ) %>%
-  dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
+  ) #%>%
+  # dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
 
 #------------------------------
 # total number of measurements
@@ -141,10 +141,10 @@ dtab_tot <- d3 %>%
   mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
          desc = "Overall"
-  ) %>%
-  dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
+  ) 
 
-dtab_all <- bind_rows(dtab_tot,dtab_age, dtab_yr)
+dtab_all <- bind_rows(dtab_tot,dtab_age, dtab_yr) %>%
+  dplyr::select(desc,ndbs,seapos,seaprev,nkk,kkpos,kkprev)
 ```
 
 
@@ -153,10 +153,10 @@ dtab_all <- bind_rows(dtab_tot,dtab_age, dtab_yr)
 # print an HTML summary table
 #------------------------------
 knitr::kable(dtab_all,digits=0,escape=FALSE,
-             caption="Table 1. Number of children and samples tested, stratified by age and by year.",
-             col.names=c("","N Samples","(%)","N Samples","(%)")) %>%
+             caption="Table 1. Number of samples tested and prevalence, stratified by age and by year.",
+             col.names=c("","N<br>Samples","N<br>Positive","(%)","N<br>Samples","N<br>Positive","(%)")) %>%
   kable_styling(bootstrap_options = c("striped","condensed"),full_width = TRUE) %>%
-  add_header_above(c(" " = 1, "SEA Seroprevalence" = 2, "Kato-Katz Prevalence" = 2)) %>%
+  add_header_above(c(" " = 1, "SEA Seroprevalence" = 3, "Kato-Katz Prevalence" = 3)) %>%
   group_rows("", 1,1) %>%
   group_rows("Age (years completed)", 2,7) %>%
   group_rows("Year", 8,10)
