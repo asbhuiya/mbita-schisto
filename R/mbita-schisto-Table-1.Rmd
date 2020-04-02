@@ -112,8 +112,7 @@ dtab_yr <- d3 %>%
   mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
          desc = as.character(year)
-  ) #%>%
-  # dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
+  ) 
 
 #------------------------------
 # measurements by age group
@@ -127,8 +126,7 @@ dtab_age <- d3 %>%
   mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
          desc = as.character(agecat)
-  ) #%>%
-  # dplyr::select(desc,ndbs,seaprev,nkk,kkprev)
+  ) 
 
 #------------------------------
 # total number of measurements
