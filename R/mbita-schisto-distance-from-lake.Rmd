@@ -107,12 +107,109 @@ dvil3 <- left_join(dvil2,d_spatial,by="vid") %>%
 
 ```
 
+# Assess whether age-standarization is necessary
+
+Age is strongly related to both SEA seroprevalence and Kato-Katz prevalence.  If age distributions differ across villages, then that could lead to confounding when assessing the relationships between village-level prevalence and other exposures, like distance to the lake Estimate a binomial generalized additive model that includes a cubic spline for child age and village-level random effects. Estimate predicted prevalence in each village, marginally standardized to the age distribution of the entire study population.
+
+```{r age adjusted prevalence}
+#------------------------------
+# estimate GAM models for SEA 
+# and Kato-Katz prevalence
+#------------------------------
+seafit <- gam(sea_pos ~ s(agey, bs="cr") + s(vid, bs = "re"), data = d2, family = "binomial")
+kkfit <- gam(kk_pos ~ s(agey, bs="cr") + s(vid, bs = "re"), data = d2, family = "binomial")
+
+#------------------------------
+# create a new dataset that 
+# reflects the overall age distribution
+# and predict prevalence for each village
+#------------------------------
+d_agest <- foreach(vidi = levels(d2$vid), .combine = rbind) %do% {
+  di <- d2 %>% mutate(vid = vidi)
+  di$sea_pred = predict(seafit, newdata = di, type = "response")
+  di$kk_pred = predict(kkfit, newdata = di, type = "response")
+  di
+}
+d_agest <- d_agest %>%
+  mutate(vid = factor(vid,levels=levels(dvil2$vid)))
+#------------------------------
+# estimate village-level
+# age-standardized prevalence
+# (marginal standardization)
+#------------------------------
+dvil_std <- d_agest %>%
+  group_by(vid) %>%
+  summarize(sea_prev_gam = mean(sea_pred),
+            kk_prev_gam = mean(kk_pred)
+            ) 
+
+#------------------------------
+# merge to the unstandardized
+# estimates
+#------------------------------
+dvil_std2 <- left_join(dvil, dvil_std, by = "vid")
+
+```
+
+## Compare unadjusted and age-adjusted prevalence estimates
+```{r plot unadj and adj prev}
+#--------------------------------
+# plot unadjusted versus
+# age standardized prevalence
+# in the 30 villages
+#--------------------------------
+
+#--------------------------------
+# SEA
+#--------------------------------
+plot_unadj_adj_sea <- ggplot(data = dvil_std2, aes(x = sea_prev, y = sea_prev_gam)) + 
+  geom_abline(intercept = 0, slope = 1, color = "gray40") +
+  geom_point(alpha = 0.8) +
+  scale_x_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
+  scale_y_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
+  labs(x = "Unadjusted SEA seroprevalence (%)", y = "Age standardized SEA seroprevalence (%)", title = "Village level SEA seroprevalence") +
+  coord_cartesian(xlim = c(0,1),ylim = c(0,1)) + 
+  theme_minimal()
+
+plot_unadj_adj_sea
+
+
+#--------------------------------
+# Kato-Katz
+#--------------------------------
+plot_unadj_adj_kk <- ggplot(data = dvil_std2, aes(x = kk_prev, y = kk_prev_gam)) + 
+  geom_abline(intercept = 0, slope = 1, color = "gray40") +
+  geom_point(alpha = 0.8) +
+  scale_x_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
+  scale_y_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
+  labs(x = "Unadjusted Kato-Katz prevalence (%)", y = "Age standardized Kato-Katz prevalence (%)", title = "Village level Kato-Katz prevalence") +
+  coord_cartesian(xlim = c(0,1),ylim = c(0,1)) + 
+  theme_minimal()
+
+plot_unadj_adj_kk
+
+```
+
+Age is not a village-level confounder in this study so ignore it in the analyses below to simplify the estimation process. This is consistent with very similar age distributions across the 30 villages:
+
+```{r plot age distributions by village, fig.width=10, fig.height=10}
+plot_age_distributions <- ggplot(data = d2, aes(x = agey)) +
+  facet_wrap(~vid,nrow=6,ncol=5)+
+  geom_line(stat = "density", color = cbPalette[6]) +
+  geom_density(data = d_agest,color = "gray20", lwd=0.2) +
+  # geom_line(data = d_agest, stat = "density", color = "gray50", lwd=0.2) +
+  labs(x = "age, years", title = "Age distributions by village",subtitle = "Village distributions in blue, overall distribution in grey")
+
+plot_age_distributions
+
+```
+
 
 # Village-level seroprevalence and FOI versus distance from the lake
 
 ## Fit models of prevalence by distance
 
-Estimate seroprevalence as a function of distance from Lake Victoria using a semi-parametric spline, adjust for age
+Estimate seroprevalence as a function of distance from Lake Victoria using a semi-parametric spline
 
 ```{r seroprevalence vs dist}
 #-----------------------------
