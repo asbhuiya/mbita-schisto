@@ -206,7 +206,7 @@ plot_age_distributions <- ggplot(data = d2_plot, aes(x = agey)) +
 
 ```
 
-```{r age distribution composite figure}
+```{r age distribution composite figure, fig.height=10, fig.width=10}
 
 age_plot_composite <- grid.arrange(plot_age_distributions,
                                    plot_unadj_adj_sea,
@@ -306,7 +306,7 @@ fit_kk_dist_ci <- fit_kk_dist_ci %>%
 pkkdist <- ggplot(data=fit_kk_dist_ci,aes(x=dist_victoria/1000)) +
   geom_line(aes(y=fit), color="gray40",lwd=0.3) +
   geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.1,color=NA,fill="black") +
-  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=kk_prev),alpha=1,color=cbPalette[2]) +
+  geom_point(data=dvil3,aes(x=dist_victoria/1000,y=kk_prev),alpha=1,color=vircols[3]) +
   scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
@@ -334,9 +334,9 @@ pspdist <- ggplot(data=fit_sea_dist_ci,aes(x=dist_victoria/1000)) +
   # spline fit
   geom_line(aes(y=fit), color="gray40",lwd=0.3) +
   # village means, <1500 m
-  geom_point(data=filter(dvil3,dist_victoria<1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=cbPalette[8]) +
+  geom_point(data=filter(dvil3,dist_victoria<1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=0.8,color=cbPalette[7]) +
   # village means, >1500 m
-  geom_point(data=filter(dvil3,dist_victoria>=1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=cbPalette[4]) +
+  geom_point(data=filter(dvil3,dist_victoria>=1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color="gray40") +
   scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
@@ -358,11 +358,12 @@ ggsave(filename=here("output","mbita-SEA-seroprev-v-dist.png"),plot=pspdist,devi
 #-----------------------------
 pfoidist <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda,ymin=lambda_lb,ymax=lambda_ub)) +
   # village mean FOI for villages <1500m
-  # geom_point(data=filter(dvil3,dist_victoria<1500),alpha=1,color=cbPalette[8]) +
-  geom_pointrange(data=filter(dvil3,dist_victoria<1500),alpha=1,color=cbPalette[8]) +
+  # geom_pointrange(data=filter(dvil3,dist_victoria<1500),alpha=1,color=cbPalette[7], size = 0.4) +
+  geom_errorbar(data=filter(dvil3,dist_victoria<1500),alpha=0.8,color = cbPalette[7])+
+  geom_point(data=filter(dvil3,dist_victoria<1500),alpha = 1, pch=21, bg="white", color = cbPalette[7], size = 1.75)+
+  geom_point(data=filter(dvil3,dist_victoria<1500),alpha = 0.8, pch=19, bg=cbPalette[7], color = cbPalette[7], size = 1.75)+
   # village mean FOI for villages >1500m
-  # geom_point(data=filter(dvil3,dist_victoria>=1500),alpha=1,color=cbPalette[4]) +
-  geom_pointrange(data=filter(dvil3,dist_victoria>=1500),alpha=1,color=cbPalette[4]) +
+  geom_pointrange(data=filter(dvil3,dist_victoria>=1500),alpha=1,color="gray40",size = 0.3) +
   scale_y_continuous(breaks=seq(0,0.8,by=0.2))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
