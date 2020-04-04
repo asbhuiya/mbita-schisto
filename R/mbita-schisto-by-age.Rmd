@@ -86,7 +86,8 @@ table(d2$agecat)
 
 pdist <- ggplot(data=d2,aes(x=logsea)) +
   facet_grid(agecat~.) +
-  geom_density(alpha=1,color=NA,fill=cbPalette[3]) +
+  geom_density(alpha=0.8,color=NA,fill=vircols[3]) +
+  geom_rug(alpha=0.3,color = vircols[3]) +
   geom_vline(aes(xintercept = log10(965) ),lty=1) +
   # scale_fill_manual(values=pcols)+
   # geom_vline(aes(xintercept = mixcut),lty=2) +
@@ -129,8 +130,8 @@ Make a figure
 ```{r seroprev by age plot}
 
 pageprev <- ggplot(data=fitp_seaci,aes(x=agey,y=fit)) +
-  geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.3,fill=cbPalette[3]) +
-  geom_line(lwd=0.5,alpha=1,color=cbPalette[3]) +
+  geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.3,fill="gray40") +
+  geom_line(lwd=0.5,alpha=1,color="gray40") +
   scale_y_continuous(breaks=seq(0,0.8,by=0.1),labels=seq(0,80,by=10))+
   labs(x="age, years",y="SEA seroprevalence (%)") +
   coord_cartesian(xlim=c(0,5),ylim=c(0,0.8))+
@@ -280,8 +281,8 @@ foi_ests <- foiCI(m=fitp_sea,newdata=newd,fdvar="agey")
 
 ```{r foi by age figure}
 foiplot <- ggplot(data=foi_ests,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS)) +
-  geom_ribbon(color=NA,alpha=0.3,fill=cbPalette[3]) +
-  geom_line(color=cbPalette[3]) +
+  geom_ribbon(color=NA,alpha=0.3,fill="gray40") +
+  geom_line(color="gray40") +
   scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
   labs(x="age, years",y=expression(paste("age-specific seroconversion rate per year, ",lambda,"(a)")))+
   coord_cartesian(ylim=c(0,0.6))+
@@ -289,7 +290,7 @@ foiplot <- ggplot(data=foi_ests,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS))
 foiplot
 ```
 
-# Analyses stratified by distance
+# Figure 3c Analyses stratified by distance
 
 In the descriptive analyses, most villages further than 1.5 km of Lake Victoria had distinctly lower village-specific estimates of force of infection.  Stratify the age-seroprevalence curves and age-specific force of infection estimates by distance from the lake.
 
@@ -342,7 +343,7 @@ fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
 #----------------------------------------
 # seroprevalence curves
 #----------------------------------------
-distcols <- cbPalette[c(8,4)]
+distcols <- c(cbPalette[c(7)],"gray40")
 pageprev_sea01 <- ggplot(data=fitp_dist_ci,aes(x=agey,y=fit,group=dist,color=dist,fill=dist)) +
   geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.2,color=NA) +
   geom_line(lwd=0.5,alpha=1) +
@@ -399,7 +400,9 @@ foiplot2
 ggsave(filename=here("output","mbita-sea-age-foi-dist.png"),plot=foiplot2,device="png",width=3*1.18,height=3)
 ```
 
-# Sensitivity analysis of distance ranges
+# Supplementary Figure 3
+
+Sensitivity analysis of distance ranges
 
 Stratify the 30 villages into qunitiles of distance and repeat the age-dependent analyses
 
