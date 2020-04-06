@@ -109,8 +109,8 @@ dtab_yr <- d3 %>%
             seapos = sum(sea_pos),
             nkk = sum(!is.na(kk_pos)),
             kkpos = sum(kk_pos, na.rm =TRUE)) %>%
-  mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
-         kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
+  mutate(seaprev = sprintf("%1.0f", seapos / ndbs * 100),
+         kkprev =  sprintf("%1.0f", kkpos/nkk * 100),
          desc = as.character(year)
   ) 
 
@@ -123,8 +123,8 @@ dtab_age <- d3 %>%
             seapos = sum(sea_pos),
             nkk = sum(!is.na(kk_pos)),
             kkpos = sum(kk_pos, na.rm =TRUE)) %>%
-  mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
-         kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
+  mutate(seaprev = sprintf("%1.0f", seapos / ndbs * 100),
+         kkprev =  sprintf("%1.0f", kkpos/nkk * 100),
          desc = as.character(agecat)
   ) 
 
@@ -136,8 +136,8 @@ dtab_tot <- d3 %>%
             seapos = sum(sea_pos),
             nkk = sum(!is.na(kk_pos)),
             kkpos = sum(kk_pos, na.rm =TRUE)) %>%
-  mutate(seaprev = sprintf("%1.1f", seapos / ndbs * 100),
-         kkprev =  sprintf("%1.1f", kkpos/nkk * 100),
+  mutate(seaprev = sprintf("%1.0f", seapos / ndbs * 100),
+         kkprev =  sprintf("%1.0f", kkpos/nkk * 100),
          desc = "Overall"
   ) 
 
@@ -150,7 +150,9 @@ dtab_all <- bind_rows(dtab_tot,dtab_age, dtab_yr) %>%
 #------------------------------
 # print an HTML summary table
 #------------------------------
-knitr::kable(dtab_all,digits=0,escape=FALSE,
+knitr::kable(dtab_all,digits=0,
+             format.args = list(big.mark = ","),
+             escape=FALSE,
              caption="Table 1. Number of samples tested and prevalence, stratified by age and by year.",
              col.names=c("","N<br>Samples","N<br>Positive","(%)","N<br>Samples","N<br>Positive","(%)")) %>%
   kable_styling(bootstrap_options = c("striped","condensed"),full_width = TRUE) %>%
