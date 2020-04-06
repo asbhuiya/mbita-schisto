@@ -318,7 +318,7 @@ pkkdist
 
 ```
 
-## SEA seroprevalence vs. distance
+## Fig 4a SEA seroprevalence vs. distance
 ```{r SEA seroprev vs distance fig}
 #-----------------------------
 # SEA seroprevalence by distance
@@ -334,9 +334,9 @@ pspdist <- ggplot(data=fit_sea_dist_ci,aes(x=dist_victoria/1000)) +
   # spline fit
   geom_line(aes(y=fit), color="gray40",lwd=0.3) +
   # village means, <1500 m
-  geom_point(data=filter(dvil3,dist_victoria<1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=0.8,color=cbPalette[7]) +
+  geom_point(data=filter(dvil3,dist_victoria<1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=0.8,color=cbPalette[2]) +
   # village means, >1500 m
-  geom_point(data=filter(dvil3,dist_victoria>=1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color="gray40") +
+  geom_point(data=filter(dvil3,dist_victoria>=1500),aes(x=dist_victoria/1000,y=sea_prev),alpha=1,color=vircols[3]) +
   scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
@@ -351,7 +351,7 @@ ggsave(filename=here("output","mbita-SEA-seroprev-v-dist.png"),plot=pspdist,devi
 
 ```
 
-## SEA FOI vs. distance
+## Fig 4b SEA FOI vs. distance
 ```{r SEA FOI vs distance fig}
 #-----------------------------
 # FOI measured by SEA seroconversion over by distance
@@ -359,11 +359,11 @@ ggsave(filename=here("output","mbita-SEA-seroprev-v-dist.png"),plot=pspdist,devi
 pfoidist <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda,ymin=lambda_lb,ymax=lambda_ub)) +
   # village mean FOI for villages <1500m
   # geom_pointrange(data=filter(dvil3,dist_victoria<1500),alpha=1,color=cbPalette[7], size = 0.4) +
-  geom_errorbar(data=filter(dvil3,dist_victoria<1500),alpha=0.8,color = cbPalette[7])+
-  geom_point(data=filter(dvil3,dist_victoria<1500),alpha = 1, pch=21, bg="white", color = cbPalette[7], size = 1.75)+
-  geom_point(data=filter(dvil3,dist_victoria<1500),alpha = 0.8, pch=19, bg=cbPalette[7], color = cbPalette[7], size = 1.75)+
+  geom_errorbar(data=filter(dvil3,dist_victoria<1500),alpha=0.8,color = cbPalette[2])+
+  geom_point(data=filter(dvil3,dist_victoria<1500),alpha = 1, pch=21, bg="white", color = cbPalette[2], size = 1.75)+
+  geom_point(data=filter(dvil3,dist_victoria<1500),alpha = 0.8, pch=19, bg=cbPalette[7], color = cbPalette[2], size = 1.75)+
   # village mean FOI for villages >1500m
-  geom_pointrange(data=filter(dvil3,dist_victoria>=1500),alpha=1,color="gray40",size = 0.3) +
+  geom_pointrange(data=filter(dvil3,dist_victoria>=1500),alpha=1,color=vircols[3],size = 0.3) +
   scale_y_continuous(breaks=seq(0,0.8,by=0.2))+
   scale_x_continuous(breaks=0:5)+
   # scale_color_manual(values=pcols)+
