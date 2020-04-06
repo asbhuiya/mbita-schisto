@@ -290,7 +290,7 @@ foiplot <- ggplot(data=foi_ests,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS))
 foiplot
 ```
 
-# Figure 3c Analyses stratified by distance
+# Figure 4c Analyses stratified by distance
 
 In the descriptive analyses, most villages further than 1.5 km of Lake Victoria had distinctly lower village-specific estimates of force of infection.  Stratify the age-seroprevalence curves and age-specific force of infection estimates by distance from the lake.
 
@@ -343,7 +343,7 @@ fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
 #----------------------------------------
 # seroprevalence curves
 #----------------------------------------
-distcols <- c(cbPalette[c(7)],"gray40")
+distcols <- c(cbPalette[c(2)],vircols[3])
 pageprev_sea01 <- ggplot(data=fitp_dist_ci,aes(x=agey,y=fit,group=dist,color=dist,fill=dist)) +
   geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.2,color=NA) +
   geom_line(lwd=0.5,alpha=1) +
