@@ -118,12 +118,11 @@ dsmooths <- foreach(yeari=levels(dvil$yearf),.combine=rbind) %do% {
                         }
 
 
-pcols <- cbPalette[c(3,4,8)]
-
-scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev,color=yearf))+
+pcols <- cbPalette[c(5,4,2)]
+scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev, color=yearf))+
   geom_abline(intercept=0,slope=1,color="gray40")+
   geom_line(data=dsmooths,size=0.5,alpha=0.5)+
-  geom_point(alpha=0.8) +
+  geom_point(alpha=1) +
   geom_smooth(data=dvil2,method="loess",se=FALSE,color="gray40",size=0.75)+
   scale_color_manual(values=pcols,guide=guide_legend(title="year")) +
   annotate("text",x=0.1,y=0.95,label=paste("rho ==",sprintf("%1.2f",cor_sea_kk)),parse=TRUE)+
@@ -174,22 +173,25 @@ xypairs <- function(data,mapping,point_color) {
                method="spearman")
   # plot the data
   ggplot(data = data, mapping = mapping)+
-    geom_abline(intercept=0,slope=1,col="gray40")+
+    geom_abline(intercept=0,slope=1,col="gray70")+
     geom_point(color=point_color,alpha=0.75)+
     annotate("text",x=0.25,y=0.9,label=paste("rho ==",sprintf("%1.2f",xycor)),parse=TRUE,color="gray40")+
     scale_y_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
     scale_x_continuous(breaks=seq(0,1,by=0.2),labels=sprintf("%1.0f",seq(0,1,by=0.2)*100))+
     coord_cartesian(xlim=c(0,1),ylim=c(0,1)) +
-    labs(x="",y="") 
+    labs(x=NULL,y=NULL) +
+    theme(
+      plot.margin = unit(c(1,1,1,1),"mm")
+    )
     # theme_minimal()
 }
 
 #--------------------------------
 # make the panels
 #--------------------------------
-p1213 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2013),point_color=cbPalette[3])
-p1214 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2014),point_color=cbPalette[3])
-p1314 <- xypairs(data=dvil_sea,aes(x=sea2013,y=sea2014),point_color=cbPalette[3])
+p1213 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2013),point_color=vircols[3])
+p1214 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2014),point_color=vircols[3])
+p1314 <- xypairs(data=dvil_sea,aes(x=sea2013,y=sea2014),point_color=vircols[3])
 l2012 <- textGrob(label = "2012",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4))
 l2013 <- textGrob(label = "2013",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4))
 l2014 <- textGrob(label = "2014",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4)) 
@@ -222,9 +224,9 @@ ggsave(filename = here("output","mbita-sea-kk-year-prev-pairs.png"),plot = pairs
 #--------------------------------
 # make the panels
 #--------------------------------
-p1213 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2013),point_color=cbPalette[3])
-p1214 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2014),point_color=cbPalette[3])
-p1314 <- xypairs(data=dvil_sea,aes(x=sea2013,y=sea2014),point_color=cbPalette[3])
+p1213 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2013),point_color=vircols[3])
+p1214 <- xypairs(data=dvil_sea,aes(x=sea2012,y=sea2014),point_color=vircols[3])
+p1314 <- xypairs(data=dvil_sea,aes(x=sea2013,y=sea2014),point_color=vircols[3])
 l2012 <- textGrob(label = "2012",x=unit(0.6,"npc"),y=unit(0.1,"npc"),gp=gpar(cex=1.4))
 l2013 <- textGrob(label = "2013",x=unit(0.6,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4))
 l2014 <- textGrob(label = "2014",x=unit(0.2,"npc"),y=unit(0.6,"npc"),gp=gpar(cex=1.4)) 
@@ -309,7 +311,7 @@ dcorrkk <- d3c %>%
 
 
 sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
-  geom_point(color=cbPalette[3],alpha=0.9) +
+  geom_point(color=vircols[3],alpha=0.9) +
   geom_smooth(method="loess",se=FALSE,color="black",lwd=0.5) +
   scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
   coord_cartesian(ylim=c(0,1),xlim=c(0,1.05))+
@@ -317,12 +319,12 @@ sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
   theme(panel.grid.minor.y=element_blank())
 
 foi_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=lambda)) +
-  geom_point(color=cbPalette[3],alpha=0.9) +
+  geom_point(color=vircols[3],alpha=0.9) +
   geom_smooth(method="loess",se=FALSE,color="gray40",lwd=0.25) +
   geom_smooth(method="glm",se=FALSE,color="black",lwd=0.5) +
   scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
   coord_cartesian(ylim=c(0,0.65),xlim = c(0,1.05))+
-  labs(x="mean log10 S. mansoni eggs per gram",y=expression(paste("force of infection (",lambda,"), seroconversion rate per year")) ,eval=TRUE)
+  labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y=expression(paste("force of infection (",lambda,"), seroconversion rate per year")) ,eval=TRUE)
 
 
 vil_trans_plots <- grid.arrange(sp_epg_plot,foi_epg_plot,nrow=2,ncol=1)
@@ -498,7 +500,7 @@ sscorr_foi_long_reps <- sscorr_foi1 %>%
 Plot a figure of the correlation between the seroconversion rate estimated in the full sample versus cluster level SEA mean MFI-bg or seroprevalence (blue) or cluster level mean EPG or prevalence by Kato-Katz (orange) estimated at each smaller sample size
 
 ```{r downsample corr foi figure}
-pcols <- cbPalette[c(2,6,3,7)]
+pcols <- c(vircols[c(3,1)],cbPalette[c(2,7)])
 sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor, color = measure)) +
   # geom_ribbon(aes(ymin=cor_mu_lb,ymax=cor_mu_ub),color=NA,fill=cblue,alpha=0.2)+
   # geom_line(aes(y=cor_mu),color=cblue) +
@@ -508,8 +510,8 @@ sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor, color = measure)) +
   # geom_jitter(data=sscorr_foi_long_reps %>% filter(iter<=500), aes(x = ss, y= cor), col = cbPalette[7],alpha=0.2,size =0.1,width=5)+
   geom_errorbar(aes(ymin=cor_lb,ymax=cor_ub))+
   geom_point(pch=19)+
-  scale_fill_manual(values=cbPalette[c(3,6,2,7)])+
-  scale_color_manual(values=cbPalette[c(3,6,2,7)])+
+  scale_fill_manual(values=pcols)+
+  scale_color_manual(values=pcols)+
   scale_y_continuous(breaks=seq(0,1,by=0.1))+
   scale_x_continuous(breaks=seq(20,200,by=40))+
   coord_cartesian(ylim=c(0.7,1),xlim=c(20,200))+
