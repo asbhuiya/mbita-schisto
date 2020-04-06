@@ -1,5 +1,6 @@
 ---
 title: "Mbita, Kenya schistosomiasis study. Preprocess the data"
+date: "Updated `r Sys.time()`"
 output:
   html_document:
     highlight: haddock
@@ -35,10 +36,21 @@ The script below loads the full dataset, limits it to variables relevant to the 
 NOTE: This script is provided for completness but cannot be run publicly because the raw, underlying data are not available.
 
 ```{r load data}
+#---------------------------
+# Load the data
+#---------------------------
 d <- readRDS(here("data","mbita_psac.rds"))
 
 d2 <- d %>%
   dplyr::select(year,vid,arm,pid,agey,sex,sea,sm25,sm_epg)
+
+#---------------------------
+# strip real ID info
+#---------------------------
+d2 <- d2 %>%
+  mutate(pid = row_number(),
+         pid = as.character(pid))
+
 
 #---------------------------
 # identify seropositive by
@@ -49,6 +61,7 @@ d2 <- d %>%
 #---------------------------
 d2 <- d2 %>%
   mutate(
+    arm = factor(arm, levels=c("CWT","SBT")),
     sea_pos = ifelse(sea>965,1,0),
     sm25_pos = ifelse(sm25>38,1,0),
     kk_pos = ifelse(sm_epg>0,1,0)
@@ -60,11 +73,20 @@ d_lonlat <- d %>%
   group_by(vid) %>%
   slice(1)
 
+# save RDS files
 saveRDS(d2,file=here("data","mbita_schisto.rds"))
 saveRDS(d_lonlat,file=here("data","mbita_lonlat.rds"))
 
+# save CSV files
+write_csv(d2,path=here("data","mbita_schisto.csv"))
+write_csv(d_lonlat,path=here("data","mbita_lonlat.csv"))
 ```
 
+# Summarize data frame
+```{r summarize data}
+summary(d2)
+
+```
 
 # Session Info
 ```{r session info}
