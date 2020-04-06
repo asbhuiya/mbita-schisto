@@ -78,7 +78,7 @@ dcuts <- data.frame(antigenf = c("SEA","Sm25"), cutroc = c(log10(965), log10(38)
 
 ```{r mfi by age, warning= FALSE}
 
-pcols <- cbPalette[c(4,8)]
+pcols <- c(vircols[3],cbPalette[2])
 log10labs <- c( 
   expression(10^0),
   expression(10^1),
@@ -108,7 +108,7 @@ pmfiage
 # Antibody level distributions
 
 ```{r mfi distributions, warning= FALSE}
-pcols <- cbPalette[c(4,8)]
+pcols <- c(vircols[3],cbPalette[2])
 log10labs <- c( 
   expression(10^0),
   expression(10^1),
