@@ -239,7 +239,6 @@ dvil2 <- left_join(dvil2,dsf,by="vid")
 dvil_spatial <- dvil2 %>%
   dplyr::select(vid,elev,tmin,prec,dist_victoria)
 saveRDS(dvil_spatial,file=here("data","mbita_spatial.rds"))
-
 write_csv(dvil_spatial,path=here("data","mbita_spatial.csv"))
 ```
 # Assess bivariate relationships between covariates and outcomes
