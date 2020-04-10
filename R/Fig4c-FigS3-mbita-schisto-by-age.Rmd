@@ -1,5 +1,8 @@
 ---
-title: "Mbita, Kenya schistosomiasis study. Age-dependent force of infection"
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+subtitle: "Figure 4c, Figure S3 seroprevalence and force of infection by age"
+author: "Ben Arnold ben.arnold@ucsf.edu"
+date: "run `r Sys.time()`"
 output:
   html_document:
     highlight: haddock
