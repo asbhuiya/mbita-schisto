@@ -7,10 +7,12 @@ This file includes 30 observations and 5 variables.
 
 Each observation corresponds to a single village (vid). This file includes spatially joined measurements from remotely sensed datasets. Spatial data were joined using village centroids. The lon/lat coordinates of the villages are not included in this file to protect confidentiality. 
 
-This file was created by the script, which extracts most of the layers using 
-R's raster package.
-https://github.com/ben-arnold/mbita-schisto/blob/master/R/mbita-schisto-map.Rmd
+This file was created with this notebook, which extracts most of the layers using 
+R's raster package:
+https://github.com/ben-arnold/mbita-schisto/blob/master/R/Fig1-FigS1-FigS5-mbita-schisto-map.Rmd
+
 The global surface water layer was accessed through Google EE using this script:
+
 https://github.com/ben-arnold/mbita-schisto/blob/master/R/mbita-schisto-gsw-google-ee.js
 
 Neither script can be run without the lon/lat coordinates of the villages.
