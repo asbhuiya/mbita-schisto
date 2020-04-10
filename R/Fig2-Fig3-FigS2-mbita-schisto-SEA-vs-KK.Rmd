@@ -1,7 +1,8 @@
 ---
-title: "Mbita Schistosomiasis study village level SEA vs Kato-Katz"
-author: "Ben Arnold"
-date: ""
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+subtitle: "Figure 2, Figure 3, Figure S2 Comparison of serology and stool based measures at the community level"
+author: "Ben Arnold ben.arnold@ucsf.edu"
+date: "run `r Sys.time()`"
 output: 
   html_document:
     highlight: haddock
@@ -87,9 +88,9 @@ dvil2 <- d3 %>%
 
 ```
 
-# Correlation between measures and over years
+# Figure 2a 
 
-## Correlation between SEA and KK
+Correlation between SEA and KK
 
 Estimate the correlation between village-level SEA seroprevalence and Kato-Katz prevalence using a Spearman rank correlation statistic.  Estimate locally weighted smoothers of the relationship between SEA and Kato-Katz in each year and over all years.  Trim the smooths to 95% of the data to avoid edge effects.
 
@@ -138,7 +139,7 @@ ggsave(filename = here("output","mbita-sea-kk-scatter.png"),plot = scatter_sea_k
 
 ```
 
-## Correlation between years for SEA and KK
+## Supplementary Figure 2
 
 Correlation between years for village-level SEA seroprevalence and Kato-Katz prevalence
 
@@ -249,7 +250,9 @@ ggsave(filename = here("output","mbita-sea-year-prev-pairs.png"),plot = pairs_se
 
 ```
 
-# Compare village-level FOI and seroprevalence with KK
+# Figure 2b
+
+Compare village-level FOI and seroprevalence with KK
 
 
 ## Estimate village-level force of infection (FOI)
@@ -281,12 +284,11 @@ foi_ests
 ```{r cluster means vs kk}
 
 d3c <- d3 %>%
-  group_by(vid) %>%
+  group_by(vid, arm) %>%
   mutate(nsea = ifelse(is.na(sea_pos),0,1),
          nkk = ifelse(is.na(kk_pos),0,1)
          ) %>%
-  summarize(arm = max(arm),
-            nsea = sum(nsea),
+  summarize(nsea = sum(nsea),
             meansea = mean(logsea),
             prevsea = mean(sea_pos),
             nkk = sum(nkk),
@@ -302,6 +304,7 @@ d3c <- d3c %>%
 
 # # estimate pearson correlation
 dcorrkk <- d3c %>%
+  ungroup() %>%
   mutate(corspkk=cor(prevsea,prevkk,method="spearman"),
          cormukk=cor(meansea,prevkk,method="spearman"),
          corpseakkmu=cor(prevsea,meankk,method="spearman"),
@@ -343,7 +346,9 @@ saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
 ```
 
 
-# Relationship between FOI and seroprevalence with smaller samples
+# Figure 3
+
+## Relationship between FOI and seroprevalence with smaller samples
 
 There is a strong relationship between village-level seroprevalence and force of infection in the analyses above. To estimate force of infection, many observations are required, whereas estimating seroprevalence requires far fewer. 
 
