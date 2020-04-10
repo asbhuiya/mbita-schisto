@@ -1,5 +1,5 @@
 ---
-title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
 subtitle: "Table 1, summary of samples by year and by age"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"

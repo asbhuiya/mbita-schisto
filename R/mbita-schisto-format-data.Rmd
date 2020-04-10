@@ -1,6 +1,8 @@
 ---
-title: "Mbita, Kenya schistosomiasis study. Preprocess the data"
-date: "Updated `r Sys.time()`"
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
+subtitle: "Data processing script"
+author: "Ben Arnold ben.arnold@ucsf.edu"
+date: "run `r Sys.time()`"
 output:
   html_document:
     highlight: haddock

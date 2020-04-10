@@ -1,5 +1,5 @@
 ---
-title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
 subtitle: "Figure 2, Figure 3, Figure S2 Comparison of serology and stool based measures at the community level"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"
