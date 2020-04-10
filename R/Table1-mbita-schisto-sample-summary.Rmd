@@ -1,7 +1,8 @@
 ---
-title: "Mbita Schistosomiasis study village level SEA vs Kato-Katz"
-author: "Ben Arnold"
-date: ""
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+subtitle: "Table 1, summary of samples by year and by age"
+author: "Ben Arnold ben.arnold@ucsf.edu"
+date: "run `r Sys.time()`"
 output: 
   html_document:
     highlight: haddock
@@ -87,7 +88,7 @@ dvil2 <- d3 %>%
 
 ```
 
-# Basic summary of measurements
+# Table 1
 
 Summarize number of DBS and stool samples by year and by age.
 
