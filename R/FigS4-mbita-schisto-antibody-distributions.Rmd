@@ -1,7 +1,8 @@
 ---
-title: "Mbita schistosomiasis study, antibody distributions"
-author: "Ben Arnold"
-date: ""
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+subtitle: "Figure S4, S. mansoni SEA and Sm25 antibody distributions"
+author: "Ben Arnold ben.arnold@ucsf.edu"
+date: "run `r Sys.time()`"
 output: 
   html_document:
     highlight: haddock
@@ -73,8 +74,9 @@ dcuts <- data.frame(antigenf = c("SEA","Sm25"), cutroc = c(log10(965), log10(38)
 
 ```
 
+# Supplementary Figure 4
 
-# MFI by age
+## MFI by age
 
 ```{r mfi by age, warning= FALSE}
 
@@ -101,11 +103,10 @@ pmfiage <- ggplot(data = d3, aes(x = agey, y = logmfi, color = antigenf)) +
     strip.text.y = element_blank()
   )
 
-pmfiage
 
 ```
 
-# Antibody level distributions
+## Antibody level distributions
 
 ```{r mfi distributions, warning= FALSE}
 pcols <- c(vircols[3],cbPalette[2])
@@ -135,12 +136,10 @@ pmfidist <- ggplot(data = d3, aes(x = logmfi, color = antigenf, fill = antigenf)
     strip.text.y = element_text(angle = 0)
   )
 
-pmfidist
-
 
 ```
 
-# Combined figure
+## Combined figure
 
 ```{r combined figure, warning= FALSE}
 pcomp <- grid.arrange(pmfiage,pmfidist,nrow = 1, ncol =2)
@@ -148,7 +147,7 @@ pcomp <- grid.arrange(pmfiage,pmfidist,nrow = 1, ncol =2)
 ggsave(here("output","mbita-schisto-ab-distributions.png"),pcomp,device = "png")
 ```
 
-# Extra: plot age-dependent mean and seroprevalence
+## Extra: plot age-dependent mean and seroprevalence
 
 Sm25 is not included in the main analyses, but examine age-dependent mean and seroprevalence for completeness. Simply use `ggplot`'s internal smoother (no 95% CIs because it does not account for clustering on village).
 ```{r plot age dependent means}
