@@ -1,5 +1,8 @@
 ---
-title: "Mbita, Kenya schistosomiasis study. Analysis of distance from Lake Victoria"
+title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through serologic surveillance"
+subtitle: "Figure 4a, Figure 4b, Figure S6 seroprevalence and force of infection by distance from Lake Victoria, and age distribution summary"
+author: "Ben Arnold ben.arnold@ucsf.edu"
+date: "run `r Sys.time()`"
 output:
   html_document:
     highlight: haddock
@@ -88,12 +91,11 @@ d_foi <- readRDS(here("output","mbita-village-foi.rds"))
 #-----------------------------------
 
 dvil <- d2 %>%
-  group_by(vid) %>%
+  group_by(vid, arm) %>%
   summarize(sea_n = sum(sea_pos,na.rm=T),
             sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
             kk_n = sum(kk_pos,na.rm=T),
-            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
-            arm = max(arm)
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0))
             ) %>%
   mutate(sea_prev = sea_n/sea_N,
          kk_prev = kk_n/kk_N)
