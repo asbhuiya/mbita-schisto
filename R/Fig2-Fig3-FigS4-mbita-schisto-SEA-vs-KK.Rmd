@@ -1,6 +1,6 @@
 ---
 title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
-subtitle: "Figure 2, Figure 3, Figure S2 Comparison of serology and stool based measures at the community level"
+subtitle: "Figure 2, Figure 3, Figure S4 Comparison of serology and stool based measures at the community level"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"
 output: 
@@ -88,7 +88,9 @@ dvil2 <- d3 %>%
 
 ```
 
-# Figure 2a 
+# Figure 2 
+
+## Figure 2a 
 
 Correlation between SEA and KK
 
@@ -97,40 +99,27 @@ Estimate the correlation between village-level SEA seroprevalence and Kato-Katz 
 ```{r correlation between measures}
 
 # estimate correlation overall
+# bootstrap resample to estimate 95% confidence intervals
 cor_sea_kk <- cor(dvil2$sea_prev,dvil2$kk_prev,method="spearman")
-  
+set.seed(1721)
+cor_sea_kk_boot <- foreach(booti = 1:1000, .combine = rbind) %do% {
+  pd <- sample_frac(dvil2,size=1, replace = TRUE)
+  cori <- cor(pd$sea_prev,pd$kk_prev,method="spearman")
+  cori
+}
+cor_sea_kk_ci <- quantile(cor_sea_kk_boot,prob = c(0.025,0.975))
+cor_sea_kk_print <- paste0(sprintf("%1.2f",cor_sea_kk)," (", sprintf("%1.2f",cor_sea_kk_ci[1]),", ",sprintf("%1.2f",cor_sea_kk_ci[2]),")")
 
-#--------------------------------
-# estimate smooths, trimmed to
-# drop the bottom and top 2.5% of
-# data in each comparison
-# to avoid edge effects
-#--------------------------------
-dsmooths <- foreach(yeari=levels(dvil$yearf),.combine=rbind) %do% {
-                        pd <- filter(dvil,yearf==yeari)
-                        xqs <- quantile(pd$kk_prev,probs=c(0.025,0.975),na.rm=TRUE)
-                        yqs <- quantile(pd$sea_prev,probs=c(0.025,0.975),na.rm=TRUE)
-                        newd <- data.frame(kk_prev=seq(xqs[1],xqs[2],by=0.01))
-                        lfit <- loess(sea_prev~kk_prev,data=pd)
-                        return(data.frame(yearf=yeari,
-                                          kk_prev=newd$kk_prev,
-                                          sea_prev=predict(lfit,newdata=newd))
-                        )
-                        }
-
-# vcols1 <- viridis(10,alpha=0.7)[3]
-pcols <- c(cbPalette[c(3,4,8)])
-scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev, color=yearf))+
+# make figure
+scatter_sea_kk <- ggplot(data=dvil2,aes(x=kk_prev,y=sea_prev))+
   geom_abline(intercept=0,slope=1,color="gray40")+
-  geom_line(data=dsmooths,size=0.5,alpha=0.5)+
-  geom_point(alpha=1) +
-  geom_smooth(data=dvil2,method="loess",se=FALSE,color="gray40",size=0.75)+
-  scale_color_manual(values=pcols,guide=guide_legend(title="year")) +
-  annotate("text",x=0.1,y=0.95,label=paste("rho ==",sprintf("%1.2f",cor_sea_kk)),parse=TRUE)+
+  geom_point(color=vircols[3],alpha=0.9) +
+  geom_smooth(data=dvil2,method="loess",se=FALSE,color="black",size=0.5)+
+  annotate("text",x=0.05,y=0.95,label=paste("rho ==",deparse(cor_sea_kk_print)),parse=TRUE, hjust =0)+
   scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
   scale_x_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
   coord_cartesian(ylim=c(0,1),xlim=c(0,1))+
-  labs(x="Kato-Katz prevalence (%)",y="SEA seroprevalence (%)")+
+  labs(x="Kato-Katz prevalence (%)",y="SEA seroprevalence (%)", tag = "A")+
   theme(legend.position=c(0.9,0.2),
         panel.grid.minor=element_blank())
 scatter_sea_kk
@@ -139,7 +128,123 @@ ggsave(filename = here("output","mbita-sea-kk-scatter.png"),plot = scatter_sea_k
 
 ```
 
-## Supplementary Figure 2
+## Figures 2b, 2c
+
+Compare village-level FOI and seroprevalence with KK
+
+
+## Estimate village-level force of infection (FOI)
+Estimate community-level FOI for pathogens based on the seroconversion rate (incidence among susceptibles). Assume a constant rate model (i.e., average over all ages).  If we assume a constant force of infection ($\lambda$), equivalent to assuming an exponential model, then it can be shown that a generalized linear model with a complementary log-log link fit with current status, age-prevalence data is equivalent to an exponential proportional hazards model (*Jewell and van der Laan 1995*). 
+
+$\log - \log(1-P(Y|A,W)) = \log \lambda + \log A + \beta W$
+
+Moroever, this model is also equivalent to a catalytic, SIR model with a single, constant rate parameter (*Hens et al. 2010*; *Hens et al. 2012*).
+
+```{r  foi from exponential model}
+foi_ests <- foreach(comi=levels(d3$vid),.combine=rbind) %do% {
+  di <- d3 %>% filter(vid==comi)
+  gfit <- glm(sea_pos~1,offset=log(agey),data=di,family=binomial(link="cloglog"))
+  gsum <- summary(gfit)
+  lambda <- as.numeric(exp(gfit$coefficients))
+  log_lambda_se  <- sqrt(gsum$cov.unscaled)
+  lambda_lb <- as.numeric(exp(gfit$coefficients - 1.96*log_lambda_se))
+  lambda_ub <- as.numeric(exp(gfit$coefficients + 1.96*log_lambda_se))
+  res <- data.frame(vid=comi,lambda,lambda_lb,lambda_ub)
+  return(res)
+}
+
+foi_ests
+
+```
+
+## Comparison of village level estimates
+
+```{r cluster means vs kk, fig.width=6, fig.height=12}
+
+d3c <- d3 %>%
+  group_by(vid, arm) %>%
+  mutate(nsea = ifelse(is.na(sea_pos),0,1),
+         nkk = ifelse(is.na(kk_pos),0,1)
+         ) %>%
+  summarize(nsea = sum(nsea),
+            meansea = mean(logsea),
+            prevsea = mean(sea_pos),
+            nkk = sum(nkk),
+            meankk = mean(logepg,na.rm=T),
+            prevkk = mean(kk_pos,na.rm=T)
+            )
+             
+
+
+# merge in FOI estimates
+d3c <- d3c %>%
+  left_join(foi_ests,by=c("vid")) %>%
+  ungroup()
+
+# estimate spearman correlation
+dcorrkk <- d3c %>%
+  ungroup() %>%
+  mutate(corspkk=cor(prevsea,prevkk,method="spearman"),
+         cormukk=cor(meansea,prevkk,method="spearman"),
+         corpseakkmu=cor(prevsea,meankk,method="spearman"),
+         cormukkfoi=cor(lambda,meankk,method="spearman"),
+         corpkkfoi=cor(lambda,prevkk,method="spearman")) %>%
+  slice(1)
+
+# bootstrap resample to estimate 95% confidence intervals
+set.seed(23532)
+dcorrkk_boot <- foreach(booti = 1:1000, .combine = rbind) %do% {
+  pd <- sample_frac(d3c,size=1, replace = TRUE) %>%
+    mutate(corspkk=cor(prevsea,prevkk,method="spearman"),
+           cormukk=cor(meansea,prevkk,method="spearman"),
+           corpseakkmu=cor(prevsea,meankk,method="spearman"),
+           cormukkfoi=cor(lambda,meankk,method="spearman"),
+           corpkkfoi=cor(lambda,prevkk,method="spearman")) %>%
+    slice(1) %>%
+    dplyr::select(corspkk,cormukk,corpseakkmu,cormukkfoi,corpkkfoi)
+}
+
+corpseakkmu_ci <- quantile(dcorrkk_boot$corpseakkmu,prob = c(0.025,0.975))
+corpseakkmu_print <- paste0(sprintf("%1.2f",dcorrkk$corpseakkmu)," (", sprintf("%1.2f",corpseakkmu_ci[1]),", ",sprintf("%1.2f",corpseakkmu_ci[2]),")")
+
+cormukkfoi_ci <- quantile(dcorrkk_boot$cormukkfoi,prob = c(0.025,0.975))
+cormukkfoi_print <- paste0(sprintf("%1.2f",dcorrkk$cormukkfoi)," (", sprintf("%1.2f",cormukkfoi_ci[1]),", ",sprintf("%1.2f",cormukkfoi_ci[2]),")")
+
+
+sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
+  geom_point(color=vircols[3],alpha=0.9) +
+  geom_smooth(method="loess",se=FALSE,color="black",lwd=0.5) +
+  annotate("text",x=0.05,y=0.95,label=paste("rho ==",deparse(corpseakkmu_print)),parse=TRUE, hjust=0)+
+  scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
+  coord_cartesian(ylim=c(0,1),xlim=c(0,1.05))+
+  labs(x="",y="SEA seroprevalence (%)",tag = "B") +
+  theme(panel.grid.minor.y=element_blank())
+
+foi_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=lambda)) +
+  geom_point(color=vircols[3],alpha=0.9) +
+  geom_smooth(method="loess",se=FALSE,color="gray40",lwd=0.25) +
+  geom_smooth(method="glm",se=FALSE,color="black",lwd=0.5) +
+  annotate("text",x=0.05,y=0.625,label=paste("rho ==", deparse(cormukkfoi_print)),parse=TRUE, hjust=0)+
+  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
+  coord_cartesian(ylim=c(0,0.65),xlim = c(0,1.05))+
+  labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y=expression(paste("force of infection (",lambda,"), seroconversion rate / year")) ,eval=TRUE, tag = "C")
+
+
+vil_trans_plots <- grid.arrange(sp_epg_plot,foi_epg_plot,nrow=2,ncol=1)
+
+ggsave(filename=here("output","mbita-village-transmission-ests.png"),plot=vil_trans_plots,device="png",width=4,height=8)
+
+```
+
+## Save FOI estimates for future use
+
+Save village-level force of infection estimates for future use in downstream data visualizations.
+```{r save FOI}
+saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
+```
+
+
+# Figure S4
 
 Correlation between years for village-level SEA seroprevalence and Kato-Katz prevalence
 
@@ -250,100 +355,6 @@ ggsave(filename = here("output","mbita-sea-year-prev-pairs.png"),plot = pairs_se
 
 ```
 
-# Figure 2b
-
-Compare village-level FOI and seroprevalence with KK
-
-
-## Estimate village-level force of infection (FOI)
-Estimate community-level FOI for pathogens based on the seroconversion rate (incidence among susceptibles). Assume a constant rate model (i.e., average over all ages).  If we assume a constant force of infection ($\lambda$), equivalent to assuming an exponential model, then it can be shown that a generalized linear model with a complementary log-log link fit with current status, age-prevalence data is equivalent to an exponential proportional hazards model (*Jewell and van der Laan 1995*). 
-
-$\log - \log(1-P(Y|A,W)) = \log \lambda + \log A + \beta W$
-
-Moroever, this model is also equivalent to a catalytic, SIR model with a single, constant rate parameter (*Hens et al. 2010*; *Hens et al. 2012*).
-
-```{r  foi from exponential model}
-foi_ests <- foreach(comi=levels(d3$vid),.combine=rbind) %do% {
-  di <- d3 %>% filter(vid==comi)
-  gfit <- glm(sea_pos~1,offset=log(agey),data=di,family=binomial(link="cloglog"))
-  gsum <- summary(gfit)
-  lambda <- as.numeric(exp(gfit$coefficients))
-  log_lambda_se  <- sqrt(gsum$cov.unscaled)
-  lambda_lb <- as.numeric(exp(gfit$coefficients - 1.96*log_lambda_se))
-  lambda_ub <- as.numeric(exp(gfit$coefficients + 1.96*log_lambda_se))
-  res <- data.frame(vid=comi,lambda,lambda_lb,lambda_ub)
-  return(res)
-}
-
-foi_ests
-
-```
-
-## Comparison of village level estimates
-
-```{r cluster means vs kk}
-
-d3c <- d3 %>%
-  group_by(vid, arm) %>%
-  mutate(nsea = ifelse(is.na(sea_pos),0,1),
-         nkk = ifelse(is.na(kk_pos),0,1)
-         ) %>%
-  summarize(nsea = sum(nsea),
-            meansea = mean(logsea),
-            prevsea = mean(sea_pos),
-            nkk = sum(nkk),
-            meankk = mean(logepg,na.rm=T),
-            prevkk = mean(kk_pos,na.rm=T)
-            )
-             
-
-
-# merge in FOI estimates
-d3c <- d3c %>%
-  left_join(foi_ests,by=c("vid"))
-
-# # estimate pearson correlation
-dcorrkk <- d3c %>%
-  ungroup() %>%
-  mutate(corspkk=cor(prevsea,prevkk,method="spearman"),
-         cormukk=cor(meansea,prevkk,method="spearman"),
-         corpseakkmu=cor(prevsea,meankk,method="spearman"),
-         cormukkfoi=cor(lambda,meankk,method="spearman"),
-         corpkkfoi=cor(lambda,prevkk,method="spearman")) %>%
-  slice(1)
-
-
-sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
-  geom_point(color=vircols[3],alpha=0.9) +
-  geom_smooth(method="loess",se=FALSE,color="black",lwd=0.5) +
-  annotate("text",x=0.1,y=0.95,label=paste("rho ==",sprintf("%1.2f",dcorrkk$corpseakkmu)),parse=TRUE)+
-  scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
-  coord_cartesian(ylim=c(0,1),xlim=c(0,1.05))+
-  labs(x="",y="SEA seroprevalence (%)") +
-  theme(panel.grid.minor.y=element_blank())
-
-foi_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=lambda)) +
-  geom_point(color=vircols[3],alpha=0.9) +
-  geom_smooth(method="loess",se=FALSE,color="gray40",lwd=0.25) +
-  geom_smooth(method="glm",se=FALSE,color="black",lwd=0.5) +
-  annotate("text",x=0.1,y=0.625,label=paste("rho ==",sprintf("%1.2f",dcorrkk$cormukkfoi)),parse=TRUE)+
-  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
-  coord_cartesian(ylim=c(0,0.65),xlim = c(0,1.05))+
-  labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y=expression(paste("force of infection (",lambda,"), seroconversion rate per year")) ,eval=TRUE)
-
-
-vil_trans_plots <- grid.arrange(sp_epg_plot,foi_epg_plot,nrow=2,ncol=1)
-
-ggsave(filename=here("output","mbita-village-transmission-ests.png"),plot=vil_trans_plots,device="png",width=4,height=8)
-
-```
-
-# Save FOI estimates for future use
-
-Save village-level force of infection estimates for future use in downstream data visualizations.
-```{r save FOI}
-saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
-```
 
 
 # Figure 3
