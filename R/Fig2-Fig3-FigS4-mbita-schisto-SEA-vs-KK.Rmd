@@ -51,6 +51,7 @@ d2 <- d %>%
 d3 <- d2 %>% 
   ungroup() %>%
   mutate(vid=factor(vid),
+         yearf = factor(year),
          dummy=1)
 
 #---------------------------
@@ -110,12 +111,36 @@ cor_sea_kk_boot <- foreach(booti = 1:1000, .combine = rbind) %do% {
 cor_sea_kk_ci <- quantile(cor_sea_kk_boot,prob = c(0.025,0.975))
 cor_sea_kk_print <- paste0(sprintf("%1.2f",cor_sea_kk)," (", sprintf("%1.2f",cor_sea_kk_ci[1]),", ",sprintf("%1.2f",cor_sea_kk_ci[2]),")")
 
+#--------------------------------
+# estimate smooths in each year
+# trimmed to drop the bottom 
+# and top 2.5% of data in each 
+# comparison to avoid edge effects
+#--------------------------------
+dsmooths <- foreach(yeari=levels(dvil$yearf),.combine=rbind) %do% {
+                        pd <- filter(dvil,yearf==yeari)
+                        xqs <- quantile(pd$kk_prev,probs=c(0.025,0.975),na.rm=TRUE)
+                        yqs <- quantile(pd$sea_prev,probs=c(0.025,0.975),na.rm=TRUE)
+                        newd <- data.frame(kk_prev=seq(xqs[1],xqs[2],by=0.01))
+                        lfit <- loess(sea_prev~kk_prev,data=pd)
+                        return(data.frame(yearf=yeari,
+                                          kk_prev=newd$kk_prev,
+                                          sea_prev=predict(lfit,newdata=newd))
+                        )
+}
+
+
+# pcols <- c(cbPalette[c(3,4,8)])
+# use a nice color palette from Trevor Bedford
+pcols <- c("#D9B86A", "#9B9F7C", "#5986B0")
 # make figure
-scatter_sea_kk <- ggplot(data=dvil2,aes(x=kk_prev,y=sea_prev))+
+scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev, color = yearf))+
   geom_abline(intercept=0,slope=1,color="gray40")+
-  geom_point(color=vircols[3],alpha=0.9) +
+  geom_point(alpha=0.8) +
+  geom_line(data=dsmooths,size=0.5,alpha=0.5)+
   geom_smooth(data=dvil2,method="loess",se=FALSE,color="black",size=0.5)+
   annotate("text",x=0.05,y=0.95,label=paste("rho ==",deparse(cor_sea_kk_print)),parse=TRUE, hjust =0)+
+  scale_color_manual(values=pcols,guide=guide_legend(title="year",override.aes = list(alpha=1))) +
   scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
   scale_x_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
   coord_cartesian(ylim=c(0,1),xlim=c(0,1))+
@@ -125,6 +150,13 @@ scatter_sea_kk <- ggplot(data=dvil2,aes(x=kk_prev,y=sea_prev))+
 scatter_sea_kk
 
 ggsave(filename = here("output","mbita-sea-kk-scatter.png"),plot = scatter_sea_kk, device = "png",width=4,height=4)
+
+```
+
+Print the values for specific estimates reported in text
+
+```{r print year-specific values of KK and SEA}
+dvil %>% ungroup() %>% dplyr::select(-yearf) %>% arrange(year,kk_prev)
 
 ```
 
@@ -145,8 +177,8 @@ foi_ests <- foreach(comi=levels(d3$vid),.combine=rbind) %do% {
   di <- d3 %>% filter(vid==comi)
   gfit <- glm(sea_pos~1,offset=log(agey),data=di,family=binomial(link="cloglog"))
   gsum <- summary(gfit)
-  lambda <- as.numeric(exp(gfit$coefficients))
-  log_lambda_se  <- sqrt(gsum$cov.unscaled)
+  lambda <- as.numeric(exp(gfit$coefficients[1]))
+  log_lambda_se  <- sqrt(gsum$cov.unscaled[1,1])
   lambda_lb <- as.numeric(exp(gfit$coefficients - 1.96*log_lambda_se))
   lambda_ub <- as.numeric(exp(gfit$coefficients + 1.96*log_lambda_se))
   res <- data.frame(vid=comi,lambda,lambda_lb,lambda_ub)
