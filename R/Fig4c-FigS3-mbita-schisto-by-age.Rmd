@@ -1,6 +1,6 @@
 ---
 title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
-subtitle: "Figure 4c, Figure S3 seroprevalence and force of infection by age"
+subtitle: "Fig 4c, Fig 4d, Fig S5 seroprevalence and force of infection by age"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"
 output:
@@ -75,6 +75,7 @@ d2 <- d2 %>%
 d3 <- d2 %>% 
   ungroup() %>%
   mutate(vid=factor(vid),
+         yearf = factor(year),
          dummy=1)
 
 
@@ -111,20 +112,40 @@ pdist
 
 Estimate age-dependent seroprevalence using a semi-parametric spline fit.  Include community-level random effects to account for repeated measures within community. Estimate an approximate, simultaneous 95% confidence interval on the spline fit.
 
-```{r agecurves seroprev}
+```{r agecurves model selection}
 
-fitp_sea <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family="binomial", 
+# constant rate (exponential) proportional hazards current status model
+fit_exp <- mgcv::gam(sea_pos~1+ s(vid,bs="re",by=dummy),offset = log(agey), family=binomial(link = "cloglog"), data=d3)
+
+# semiparamtric proportional hazards current status model
+fit_age <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family=binomial(link = "cloglog"), data=d3)
+
+# semiparamtric proportional hazards current status model plus fixed effects for study year
+fit_age_yr <- mgcv::gam(sea_pos~ yearf + s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family=binomial(link = "cloglog"), data=d3)
+
+# compare AIC and conduct a likelihood ratio test to examine increased
+# model complexity
+AIC(fit_exp, fit_age, fit_age_yr)
+lrtest(fit_exp, fit_age, fit_age_yr)
+```
+
+
+```{r agecurves seroprev}
+# Fit a proportional hazards current status survival model
+# with semiparametric hazard by age, fixed effects for year,
+# and random effects for village
+fitp_sea <- mgcv::gam(sea_pos~ yearf + s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family=binomial(link = "cloglog"), 
                       data=d3)
-newd <- d3 %>%  mutate(dummy=0)
+newd <- d3 %>%  mutate(dummy=0, yearf = "2012")
 fitp_seaci <- gamCI(m=fitp_sea,newdata=newd,nreps=10000)
 
 # convert linear predictor to prevalance
 fitp_seaci <- fitp_seaci %>%
-  mutate(fit = expitfn(fit),
-         uprP = expitfn(uprP),
-         lwrP = expitfn(lwrP),
-         uprS = expitfn(uprS),
-         lwrS = expitfn(lwrS),
+  mutate(fit = cloglogfn(fit),
+         uprP = cloglogfn(uprP),
+         lwrP = cloglogfn(lwrP),
+         uprS = cloglogfn(uprS),
+         lwrS = cloglogfn(lwrS),
          )
 
 ```
@@ -183,6 +204,7 @@ Estimate the age-dependent seroconversion rate as a measure of force of infectio
 #          Ft_se : pointwise estimate of the standard error of the linear predictor of Ft
 #
 #                    Note: foi = ft * (exp(Ft)/(1+exp(Ft))) for a logit link
+#                          foi = ft * exp(Ft) for a complementary log-log link
 #                    See Hens et al. 2012 Modeling Infectious Disease Parameters
 #                                         Using Serological and Social Contact Data, Table 5.1
 #----------------------------
@@ -240,7 +262,10 @@ foiCI <- function(m,newdata,fdvar,eps=1e-07,level=0.95,nreps=10000) {
   sims<- MASS::mvrnorm(n = nreps, mu = coef(m), Sigma = Vb)
   Ft_bs <- X0 %*% t(sims)
   ft_bs <- Xp %*% t(sims)
-  foi_bs <- ft_bs*(exp(Ft_bs)/(1+exp(Ft_bs)))
+  # fn for proportional odds survival model
+  # foi_bs <- ft_bs*(exp(Ft_bs)/(1+exp(Ft_bs)))
+  # fn for proportional hazards survival model
+  foi_bs <- ft_bs*exp(Ft_bs)
   
   # estimate age-specific force of infection
   # averaged over the bootstrap replicates
@@ -277,7 +302,7 @@ foiCI <- function(m,newdata,fdvar,eps=1e-07,level=0.95,nreps=10000) {
 # Model predictions of FOI, with age grid newd
 #----------------------------------------
 set.seed(123)
-newd <- data.frame(agey=seq(0.2,5,by=0.01),vid="1",dummy=0)
+newd <- data.frame(agey=seq(0.2,5,by=0.01),vid="1",dummy=0, yearf = "2012")
 foi_ests <- foiCI(m=fitp_sea,newdata=newd,fdvar="agey")
 
 ```
@@ -293,7 +318,78 @@ foiplot <- ggplot(data=foi_ests,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS))
 foiplot
 ```
 
-# Figure 4c Analyses stratified by distance
+
+
+# Repeat estimates at baseline in 2012
+
+Since the study took place in the context of annual mass drug administration (MDA), which could influence SEA seroprevalence, examine age-specific patterns in 2012, pre-MDA, to ensure that treatment does not radically change age-dependent patterns. The 2012 estimates are consistent with estimates across all years. The force of infection increased more steeply in 2012 and decreased thereafter, but there was a lot of uncertainty owing to smaller sample size in 2012 (n=1120) compared with all three years combined (n=3663).
+
+## Seroprevalence in 2012
+```{r agecurves seroprev in year 1}
+
+# Year 1, 2012
+fitp_sea1 <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy),
+                       family=binomial(link = "cloglog"), 
+                       data=d3 %>% filter(year==2012))
+newd <- d3 %>% filter(year==2012) %>%  mutate(dummy=0)
+set.seed(127123)
+fitp_sea1ci <- gamCI(m=fitp_sea1,newdata=newd,nreps=10000)
+
+# convert linear predictor to prevalance
+fitp_sea1ci <- fitp_sea1ci %>%
+  mutate(fit = cloglogfn(fit),
+         uprP = cloglogfn(uprP),
+         lwrP = cloglogfn(lwrP),
+         uprS = cloglogfn(uprS),
+         lwrS = cloglogfn(lwrS),
+         yearf = factor(year)
+         )
+
+```
+
+Make a figure
+```{r seroprev by age plot in year 1}
+
+pageprev_y1 <- ggplot(data=fitp_sea1ci,aes(x=agey,y=fit)) +
+  geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.3, color = NA) +
+  geom_line(lwd=0.5,alpha=1) +
+  scale_y_continuous(breaks=seq(0,0.8,by=0.1),labels=seq(0,80,by=10))+
+  labs(x="age, years",y="SEA seroprevalence (%)") +
+  coord_cartesian(xlim=c(0,5),ylim=c(0,0.8))+
+  theme_minimal() +
+  theme(legend.position="right")
+
+pageprev_y1
+
+
+```
+
+## Age-specific FOI in 2012
+
+
+```{r estimate foi from seroprevalence in year 1}
+
+#----------------------------------------
+# Model predictions of FOI, with age grid newd
+#----------------------------------------
+set.seed(123)
+newd <- data.frame(agey=seq(0.2,5,by=0.01),vid="1",dummy=0)
+foi_ests1 <- foiCI(m=fitp_sea1,newdata=newd,fdvar="agey")
+```
+
+```{r foi by age in year 1 figure}
+foiplot1 <- ggplot(data=foi_ests1,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS)) +
+  geom_ribbon(color=NA,alpha=0.3,fill="gray40") +
+  geom_line(color="gray40") +
+  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
+  labs(x="age, years",y=expression(paste("age-specific seroconversion rate per year, ",lambda,"(a)")))+
+  coord_cartesian(ylim=c(0,0.6))+
+  theme_minimal()
+foiplot1
+```
+
+
+# Figures 4C, 4D Analyses stratified by distance
 
 In the descriptive analyses, most villages further than 1.5 km of Lake Victoria had distinctly lower village-specific estimates of force of infection.  Stratify the age-seroprevalence curves and age-specific force of infection estimates by distance from the lake.
 
@@ -310,7 +406,8 @@ In the descriptive analyses, most villages further than 1.5 km of Lake Victoria 
 #-----------------------------
 d4 <- d3 %>%
   mutate(gt15 = ifelse(dist_victoria>1500,1,0),
-         lt15 = ifelse(dist_victoria<=1500,1,0)
+         lt15 = ifelse(dist_victoria<=1500,1,0),
+         yearf = factor(year)
          )
 
 #----------------------------------------
@@ -319,21 +416,22 @@ d4 <- d3 %>%
 #----------------------------------------
 fitp_dist <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9,by=gt15) + 
                          s(agey,bs="cr",k=9,by=lt15) + 
-                         s(vid,bs="re",by=dummy), 
-                       family="binomial", 
+                         s(vid,bs="re",by=dummy) +
+                         yearf, 
+                       family=binomial(link = "cloglog"), 
                        data=d4)
-newd0 <- d4 %>%  mutate(dummy=0,gt15=0,lt15=1)
-newd1 <- d4 %>%  mutate(dummy=0,gt15=1,lt15=0)
+newd0 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=0,lt15=1)
+newd1 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=1,lt15=0)
 fitp_dist0_ci <- gamCI(m=fitp_dist,newdata=newd0,nreps=10000)
 fitp_dist1_ci <- gamCI(m=fitp_dist,newdata=newd1,nreps=10000)
 
 # convert linear predictor to prevalance
 fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
-  mutate(fit = expitfn(fit),
-         uprP = expitfn(uprP),
-         lwrP = expitfn(lwrP),
-         uprS = expitfn(uprS),
-         lwrS = expitfn(lwrS),
+  mutate(fit = cloglogfn(fit),
+         uprP = cloglogfn(uprP),
+         lwrP = cloglogfn(lwrP),
+         uprS = cloglogfn(uprS),
+         lwrS = cloglogfn(lwrS),
          ) %>%
   mutate(dist=factor(gt15,levels=c(0,1),labels=c("<1.5 km from lake",">1.5 km from lake")))
 
@@ -353,7 +451,7 @@ pageprev_sea01 <- ggplot(data=fitp_dist_ci,aes(x=agey,y=fit,group=dist,color=dis
   scale_color_manual(values=distcols,guide=guide_legend(title=""))+
   scale_fill_manual(values=distcols,guide=FALSE)+
   scale_y_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
-  labs(x="age, years",y="seroprevalence (%)") +
+  labs(x="",y="seroprevalence (%)",tag = "C") +
   coord_cartesian(ylim=c(0,1),xlim=c(0,5))+
   theme_minimal() +
   theme(legend.position=c(0.3,0.9))
@@ -372,8 +470,8 @@ ggsave(filename=here("output","mbita-sea-age-seroprev-dist.png"),plot=pageprev_s
 # Conditional estimates of FOI
 #----------------------------------------
 set.seed(123)
-newd0 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=0,lt15=1,vid="1",dummy=0)
-newd1 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=1,lt15=0,vid="1",dummy=0)
+newd0 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=0,lt15=1,yearf="2012",vid="1",dummy=0)
+newd1 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=1,lt15=0,yearf="2012",vid="1",dummy=0)
 foi_ests0 <- foiCI(m=fitp_dist,newdata=newd0,fdvar="agey")
 foi_ests1 <- foiCI(m=fitp_dist,newdata=newd1,fdvar="agey")
 foi_dist <- bind_rows(foi_ests0,foi_ests1) %>%
@@ -393,7 +491,7 @@ foiplot2 <- ggplot(data=foi_dist,aes(x=agey,y=foi,ymin=foi_lwrS,ymax=foi_uprS,gr
   scale_color_manual(values=distcols,guide=guide_legend(title=""))+
   scale_fill_manual(values=distcols,guide=FALSE)+
   scale_y_continuous(breaks=seq(0,0.8,by=0.2))+
-  labs(x="age, years",y=expression(paste("age-specific force of infection, ",lambda,"(a)"))) +
+  labs(x="age, years",y=expression(paste("age-specific force of infection, ",lambda,"(a)")), tag = "D") +
   coord_cartesian(ylim=c(0,0.8))+
   theme_minimal() +
     theme(legend.position=c(0.25,0.85))
@@ -403,7 +501,7 @@ foiplot2
 ggsave(filename=here("output","mbita-sea-age-foi-dist.png"),plot=foiplot2,device="png",width=3*1.18,height=3)
 ```
 
-# Supplementary Figure 3
+# Figure S5
 
 Sensitivity analysis of distance ranges
 
@@ -455,7 +553,7 @@ fitp_distq <- mgcv::gam(sea_pos~s(agey,bs="cr",k=5,by=dq1) +
                           s(agey,bs="cr",k=5,by=dq4) +
                           s(agey,bs="cr",k=5,by=dq5) +
                           s(vid,bs="re",by=dummy),
-                       family="binomial",
+                       family=binomial(link = "cloglog"),
                        data=d5)
 
 #----------------------------------------
@@ -482,11 +580,11 @@ fitp_distq5_ci <- gamCI(m=fitp_distq,newdata=newd5,nreps=10000)
 # convert linear predictor to prevalance
 #----------------------------------------
 fitp_distq_ci <- bind_rows(fitp_distq1_ci,fitp_distq2_ci,fitp_distq3_ci,fitp_distq4_ci,fitp_distq5_ci) %>%
-  mutate(fit = expitfn(fit),
-         uprP = expitfn(uprP),
-         lwrP = expitfn(lwrP),
-         uprS = expitfn(uprS),
-         lwrS = expitfn(lwrS),
+  mutate(fit = cloglogfn(fit),
+         uprP = cloglogfn(uprP),
+         lwrP = cloglogfn(lwrP),
+         uprS = cloglogfn(uprS),
+         lwrS = cloglogfn(lwrS),
          )
 
 #----------------------------------------
