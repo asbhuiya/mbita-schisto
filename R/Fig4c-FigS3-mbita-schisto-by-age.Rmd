@@ -123,10 +123,9 @@ fit_age <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), fami
 # semiparamtric proportional hazards current status model plus fixed effects for study year
 fit_age_yr <- mgcv::gam(sea_pos~ yearf + s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family=binomial(link = "cloglog"), data=d3)
 
-# compare AIC and conduct a likelihood ratio test to examine increased
-# model complexity
+# compare AIC and BIC to examine increased model complexity
 AIC(fit_exp, fit_age, fit_age_yr)
-lrtest(fit_exp, fit_age, fit_age_yr)
+BIC(fit_exp, fit_age, fit_age_yr)
 ```
 
 
@@ -200,6 +199,52 @@ foiplot <- ggplot(data=foi_ests,aes(x=agey,y=foi,ymin=foi_lwrBS,ymax=foi_uprBS))
 foiplot
 ```
 
+## Community-specific estimates
+
+Estimate mean community-level force of infection, marginally adjusted over year and age.  Estimate the average force of infection from the seroprevalence curve using the basic relationship between the hazard (force of infection) and the cumulative hazard. 
+
+The hazard or force of infection at age $a$ is: $\lambda(a) = F'(a)/(1-F(a))$. From the definition of the hazard, we have: 
+
+$1- F(a) = \exp [ - \int_0^a \lambda(a) da ]$ and $\int_0^a \lambda(a) da = - \log [1-F(a)]$.
+
+This is the cumulative hazard. The average hazard per year (units of $a$) also divided $-\log[1-F(a)]$ by $a$.  So, all of the information is embedded in the cumulative distribution function, $F(a)$, which here is the age-dependent seroprevalence curve. 
+
+The average hazard over the age period $a_1=1$ to $a_2=5$ years is:
+
+\begin{equation}
+  \int_{a_1}^{a_2} \lambda(a) da = \frac{\log[1-F(a_1)]-\log[1-F(a_2)]}{a_2 - a_1}
+\end{equation}
+
+We estimate the variance of this parameter from a parametric bootstrap simulation of the posterior distributions of the spline parameters.  The function that implements this is `avgFOI` in the `mbita-schisto-Functions.R` script.
+
+```{r community level foi estimates}
+#------------------------------------
+# obtain predictions from the seroprevalence model, 
+# fit above in the earlier code chunk (fitp_sea)
+#
+# use predictions at ages 1 and 5 years to estimate the average FOI over the
+# age range, where foi = [log(1-F(a1))-log(1-F(a2))] / (a2-a1) for a1=1, a2=5
+# use a parametric bootstrap from the posterior of the vcov matrix to estimate
+# uncertainty in the marginally averaged FOI. see the avgFOI() function in the 
+# mbita-schisto-Functions.R script for details
+#
+# each community's prediction is shifted by its
+# estimated random effect in the model (hence dummy=1, to include RE in prediction)
+#------------------------------------
+foi_community_ests <- foreach(vidi = levels(d3$vid), .combine = rbind) %do% {
+  newdi <- data.frame(agey=c(1,5), vid = vidi , dummy=1, yearf = "2012")
+  foii <- avgFOI(fitp_sea ,newdata=newdi,a1=1,a2=5,nreps=10000)
+  res <- data.frame(vid = vidi, foii)
+  res
+}
+#------------------------------------
+# store average community-level FOI estimates and their uncertainty for
+# use in the comparison with other community-level S. mansoni metrics
+# and down-stream data visualizations
+#------------------------------------
+write_rds(foi_community_ests,path = here("output","mbita-village-foi.rds"))
+
+```
 
 
 # Repeat estimates at baseline in 2012
@@ -243,11 +288,9 @@ pageprev_y1 <- ggplot(data=fitp_sea1ci,aes(x=agey,y=fit)) +
 
 pageprev_y1
 
-
 ```
 
 ## Age-specific FOI in 2012
-
 
 ```{r estimate foi from seroprevalence in year 1}
 
@@ -317,6 +360,12 @@ fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
          ) %>%
   mutate(dist=factor(gt15,levels=c(0,1),labels=c("<1.5 km from lake",">1.5 km from lake")))
 
+# Compare AIC and BIC
+# with a model that does not allow 
+# for separate baseline hazards by distance
+# (estimated above, in an earlier code chunk)
+AIC(fit_age_yr, fitp_dist)
+BIC(fit_age_yr, fitp_dist)
 ```
 
 ## Figure of seroprevalence by age, stratified by distance from the lake
