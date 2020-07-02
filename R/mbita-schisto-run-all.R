@@ -17,48 +17,49 @@ here::here()
 #
 # (not run for public replication)
 #-----------------------------------
-rmarkdown::render(here::here("R/mbita-schisto-format-data.Rmd"),
-                  output_file = here::here("R/mbita-schisto-format-data.html"))
+rmarkdown::render(here::here("R/1-mbita-schisto-format-data.Rmd"),
+                  output_file = here::here("R/1-mbita-schisto-format-data.html"))
 
 #-----------------------------------
 # Table 1
 #-----------------------------------
-rmarkdown::render(here::here("R/Table1-mbita-schisto-sample-summary.Rmd"),
-                  output_file = here::here("R/Table1-mbita-schisto-sample-summary.html"))
+rmarkdown::render(here::here("R/2-mbita-schisto-sample-summary.Rmd"),
+                  output_file = here::here("R/2-mbita-schisto-sample-summary.html"))
 
 #-----------------------------------
 # Figure 1
-# Supplementary Figures 1, 5
+# Figure S2
+# Figure S3
 #-----------------------------------
-rmarkdown::render(here::here("R/Fig1-FigS1-FigS5-mbita-schisto-map.Rmd"),
-                  output_file = here::here("R/Fig1-FigS1-FigS5-mbita-schisto-map.html"))
+rmarkdown::render(here::here("R/3-mbita-schisto-map.Rmd"),
+                  output_file = here::here("R/3-mbita-schisto-map.html"))
+
+#-----------------------------------
+# Figure 4c, 4d
+# Fig S5
+#-----------------------------------
+rmarkdown::render(here::here("R/4-mbita-schisto-by-age.Rmd"),
+                  output_file = here::here("R/4-mbita-schisto-by-age.html"))
+
+#-----------------------------------
+# Figure 4a, 4b
+# Figure S6
+#-----------------------------------
+rmarkdown::render(here::here("R/5-mbita-schisto-distance-from-lake.Rmd"),
+                  output_file = here::here("R/5-mbita-schisto-distance-from-lake.html"))
+
 
 #-----------------------------------
 # Figure 2
 # Figure 3
-# Supplementary Figure 2
+# Figure S4
 #-----------------------------------
-rmarkdown::render(here::here("R/Fig2-Fig3-FigS2-mbita-schisto-SEA-vs-KK.Rmd"),
-                             output_file = here::here("R/Fig2-Fig3-FigS2-mbita-schisto-SEA-vs-KK.html"))
-
-
-#-----------------------------------
-# Figure 4a, 4b
-# Supplementary Figure 6
-#-----------------------------------
-rmarkdown::render(here::here("R/Fig4a-Fig4b-FigS6-mbita-schisto-distance-from-lake.Rmd"),
-                  output_file = here::here("R/Fig4a-Fig4b-FigS6-mbita-schisto-distance-from-lake.html"))
+rmarkdown::render(here::here("R/6-mbita-schisto-SEA-vs-KK.Rmd"),
+                             output_file = here::here("R/6-mbita-schisto-SEA-vs-KK.html"))
 
 #-----------------------------------
-# Figure 4c
-# Supplementary Figure 3
+# Figure S1
 #-----------------------------------
-rmarkdown::render(here::here("R/Fig4c-FigS3-mbita-schisto-by-age.Rmd"),
-                  output_file = here::here("R/Fig4c-FigS3-mbita-schisto-by-age.html"))
-
-#-----------------------------------
-# Supplementary Figure 4
-#-----------------------------------
-rmarkdown::render(here::here("R/FigS4-mbita-schisto-antibody-distributions.Rmd"),
-                  output_file = here::here("R/FigS4-mbita-schisto-antibody-distributions.html"))
+rmarkdown::render(here::here("R/7-mbita-schisto-antibody-distributions.Rmd"),
+                  output_file = here::here("R/7-mbita-schisto-antibody-distributions.html"))
 
