@@ -173,28 +173,25 @@ $\log - \log(1-P(Y|A,W)) = \log \lambda + \log A + \beta W$
 Moroever, this model is also equivalent to a catalytic, SIR model with a single, constant rate parameter (*Hens et al. 2010*; *Hens et al. 2012*).
 
 ```{r  foi from exponential model}
-foi_ests <- foreach(comi=levels(d3$vid),.combine=rbind) %do% {
-  di <- d3 %>% filter(vid==comi)
-  gfit <- glm(sea_pos~1,offset=log(agey),data=di,family=binomial(link="cloglog"))
-  gsum <- summary(gfit)
-  lambda <- as.numeric(exp(gfit$coefficients[1]))
-  log_lambda_se  <- sqrt(gsum$cov.unscaled[1,1])
-  lambda_lb <- as.numeric(exp(gfit$coefficients - 1.96*log_lambda_se))
-  lambda_ub <- as.numeric(exp(gfit$coefficients + 1.96*log_lambda_se))
-  res <- data.frame(vid=comi,lambda,lambda_lb,lambda_ub)
-  return(res)
-}
-
-foi_ests
+#-----------------------------------
+# read-in village-level FOI
+# averaged over age
+# these estimates are from the
+# semi-parametric proportional 
+# hazards model estimated in 
+# age-specific FOI script
+#-----------------------------------
+foi_ests <- read_rds(path = here("output","mbita-village-foi.rds")) %>%
+  rename(lambda = mufoi, lambda_se = mufoi_se, lambda_lb = mufoi_lb, lambda_ub = mufoi_ub)
 
 ```
 
 ## Comparison of village level estimates
 
-```{r cluster means vs kk, fig.width=6, fig.height=12}
+```{r cluster means vs kk}
 
 d3c <- d3 %>%
-  group_by(vid, arm) %>%
+  group_by(vid) %>%
   mutate(nsea = ifelse(is.na(sea_pos),0,1),
          nkk = ifelse(is.na(kk_pos),0,1)
          ) %>%
@@ -252,27 +249,28 @@ sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
   labs(x="",y="SEA seroprevalence (%)",tag = "B") +
   theme(panel.grid.minor.y=element_blank())
 
+sp_epg_plot
+
 foi_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=lambda)) +
   geom_point(color=vircols[3],alpha=0.9) +
   geom_smooth(method="loess",se=FALSE,color="gray40",lwd=0.25) +
   geom_smooth(method="glm",se=FALSE,color="black",lwd=0.5) +
-  annotate("text",x=0.05,y=0.625,label=paste("rho ==", deparse(cormukkfoi_print)),parse=TRUE, hjust=0)+
-  scale_y_continuous(breaks=seq(0,0.6,by=0.1))+
-  coord_cartesian(ylim=c(0,0.65),xlim = c(0,1.05))+
-  labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y=expression(paste("force of infection (",lambda,"), seroconversion rate / year")) ,eval=TRUE, tag = "C")
+  annotate("text",x=0.05,y=0.75,label=paste("rho ==", deparse(cormukkfoi_print)),parse=TRUE, hjust=0)+
+  scale_y_continuous(breaks=seq(0,0.8,by=0.1))+
+  coord_cartesian(ylim=c(0,0.85),xlim = c(0,1.05))+
+  labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y=expression(paste("force of infection (",lambda,"), seroconversion rate / year")) ,eval=TRUE, tag = "C") +
+  theme(panel.grid.minor.y=element_blank())
 
-
-vil_trans_plots <- grid.arrange(sp_epg_plot,foi_epg_plot,nrow=2,ncol=1)
-
-ggsave(filename=here("output","mbita-village-transmission-ests.png"),plot=vil_trans_plots,device="png",width=4,height=8)
+foi_epg_plot
 
 ```
 
-## Save FOI estimates for future use
+## Composite Figure 2
 
-Save village-level force of infection estimates for future use in downstream data visualizations.
-```{r save FOI}
-saveRDS(foi_ests,file=here("output","mbita-village-foi.rds"))
+```{r composite figure 2, fig.width = 10, fig.height = 10}
+blank <- grid.rect(gp=gpar(col="white"), draw = FALSE)
+comp_fig <- grid.arrange(scatter_sea_kk,sp_epg_plot,blank,foi_epg_plot,nrow=2,ncol=2)
+ggsave(filename=here("output","mbita-village-sea-kk-comparison.png"),plot=comp_fig,device="png",width=8,height=8)
 ```
 
 
@@ -565,7 +563,7 @@ sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor, color = measure)) +
   scale_y_continuous(breaks=seq(0,1,by=0.1))+
   scale_x_continuous(breaks=seq(20,200,by=40))+
   coord_cartesian(ylim=c(0.7,1),xlim=c(20,200))+
-  labs(y=expression(paste("correlation with community force of infection (",lambda,")")),x="sample size per community used to estimate the average") +
+  labs(y=expression(paste("correlation with community force of infection (",rho,")")),x="sample size per community used to estimate the average") +
   theme(legend.position="none")
 sscorfoip
 
