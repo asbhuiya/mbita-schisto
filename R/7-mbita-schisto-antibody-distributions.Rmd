@@ -1,6 +1,6 @@
 ---
 title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
-subtitle: "Figure S4, S. mansoni SEA and Sm25 antibody distributions"
+subtitle: "Figure S1, S. mansoni SEA and Sm25 antibody distributions"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"
 output: 
@@ -74,7 +74,7 @@ dcuts <- data.frame(antigenf = c("SEA","Sm25"), cutroc = c(log10(965), log10(38)
 
 ```
 
-# Supplementary Figure 4
+# Figure S1
 
 ## MFI by age
 
@@ -96,7 +96,7 @@ pmfiage <- ggplot(data = d3, aes(x = agey, y = logmfi, color = antigenf)) +
   # geom_smooth(method = "loess", se = FALSE, lwd = 0.5, color = "gray20") +
   scale_color_manual(values = pcols) +
   scale_y_continuous(breaks = 0:4, labels = log10labs) +
-  labs(x = "age, years", y = "Luminex response (MFI-bg)", tag = "a") +
+  labs(x = "age, years", y = "Luminex response (MFI-bg)", tag = "A") +
   coord_cartesian(ylim = c(0,4.5)) +
   theme(
     legend.position = "none",
@@ -129,7 +129,7 @@ pmfidist <- ggplot(data = d3, aes(x = logmfi, color = antigenf, fill = antigenf)
   scale_fill_manual(values = pcols) +
   scale_x_continuous(breaks = 0:4, labels = log10labs) +
   scale_y_continuous(expand = c(0,0), breaks = seq(0,700,by=100))+
-  labs(x = NULL, y = "N observations", tag = "b") +
+  labs(x = NULL, y = "N observations", tag = "B") +
   coord_flip(ylim = c(0,700), xlim = c(0,4.5))+
   theme(
     legend.position = "none", 
@@ -155,7 +155,7 @@ plot_age_means <- ggplot(data=d3, aes(x = agey, y = logmfi, color = antigenf)) +
   geom_smooth(se = FALSE) +
   scale_color_manual(values = pcols, guide=guide_legend(title = "Antigen")) +
   scale_y_continuous(breaks = 0:4, labels = log10labs) +
-  labs(x = "age, years", y = "Luminex response (MFI-bg)", tag = "a") +
+  labs(x = "age, years", y = "Luminex response (MFI-bg)", tag = "A") +
   coord_cartesian(ylim = c(0,4.5)) 
 
 plot_age_means
@@ -173,7 +173,7 @@ plot_age_serop <- ggplot(data=d4, aes(x = agey, y = seropos, color = antigenf)) 
   geom_smooth(se = FALSE) +
   scale_color_manual(values = pcols, guide=guide_legend(title = "Antigen")) +
   scale_y_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
-  labs(x = "age, years", y = "Seroprevalence (%)", tag = "b") +
+  labs(x = "age, years", y = "Seroprevalence (%)", tag = "B") +
   coord_cartesian(ylim = c(0,1)) 
 
 plot_age_serop
