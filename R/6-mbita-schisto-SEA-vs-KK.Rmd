@@ -162,19 +162,13 @@ dvil %>% ungroup() %>% dplyr::select(-yearf) %>% arrange(year,kk_prev)
 
 ## Figures 2b, 2c
 
-Compare village-level FOI and seroprevalence with KK
+Compare community-level force of infection (seroconversion rate) and seroprevalence with KK
 
-
-## Estimate village-level force of infection (FOI)
-Estimate community-level FOI for pathogens based on the seroconversion rate (incidence among susceptibles). Assume a constant rate model (i.e., average over all ages).  If we assume a constant force of infection ($\lambda$), equivalent to assuming an exponential model, then it can be shown that a generalized linear model with a complementary log-log link fit with current status, age-prevalence data is equivalent to an exponential proportional hazards model (*Jewell and van der Laan 1995*). 
-
-$\log - \log(1-P(Y|A,W)) = \log \lambda + \log A + \beta W$
-
-Moroever, this model is also equivalent to a catalytic, SIR model with a single, constant rate parameter (*Hens et al. 2010*; *Hens et al. 2012*).
+Community level force of infection was estimated using a semi-parametric proportional hazards model from age-structured prevalence in the script `mbita-schisto-by-age.Rmd`. The community level averages are marginally averaged over age. See the other script for mathematical details on the estimation. Here, read in the saved estimates for plotting and comparison.
 
 ```{r  foi from exponential model}
 #-----------------------------------
-# read-in village-level FOI
+# read-in community-level FOI
 # averaged over age
 # these estimates are from the
 # semi-parametric proportional 
@@ -265,7 +259,7 @@ foi_epg_plot
 
 ```
 
-## Composite Figure 2
+## Figure 2 composite
 
 ```{r composite figure 2, fig.width = 10, fig.height = 10}
 blank <- grid.rect(gp=gpar(col="white"), draw = FALSE)
@@ -556,7 +550,7 @@ sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor, color = measure)) +
   # geom_line(aes(y=cor_pr))+
   facet_grid(~measure)+
   # geom_jitter(data=sscorr_foi_long_reps %>% filter(iter<=500), aes(x = ss, y= cor), col = cbPalette[7],alpha=0.2,size =0.1,width=5)+
-  geom_errorbar(aes(ymin=cor_lb,ymax=cor_ub))+
+  geom_errorbar(aes(ymin=cor_lb,ymax=cor_ub), width = 0)+
   geom_point(pch=19)+
   scale_fill_manual(values=pcols)+
   scale_color_manual(values=pcols)+

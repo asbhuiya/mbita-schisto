@@ -242,6 +242,7 @@ dvil_spatial <- dvil2 %>%
 saveRDS(dvil_spatial,file=here("data","mbita_spatial.rds"))
 write_csv(dvil_spatial,path=here("data","mbita_spatial.csv"))
 ```
+
 # Figure S2
 
 ## Assess bivariate relationships between covariates and outcomes
@@ -617,7 +618,7 @@ ggsave(here("output","mbita-spatialGAM-pred-v-obs-SEA.png"),ovp_sea,device="png"
 
 ```
 
-# Supplementary Figure 1
+# Figure S1
 
 ##  Predicted surface, Kato-Katz
 ```{r map surface KK, out.width = "100%"}

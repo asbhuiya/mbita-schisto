@@ -170,7 +170,7 @@ dvil_std2 <- left_join(dvil, dvil_std, by = "vid")
 
 ```
 
-## Supplementary Figure 6
+## Figure S6
 
 Compare unadjusted and age-adjusted prevalence estimates
 
@@ -189,7 +189,7 @@ plot_unadj_adj_sea <- ggplot(data = dvil_std2, aes(x = sea_prev, y = sea_prev_ga
   geom_point(alpha = 0.7, color = vircols[3]) +
   scale_x_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
   scale_y_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
-  labs(x = "Unadjusted SEA seroprevalence (%)", y = "Age standardized SEA seroprevalence (%)", tag = "b") +
+  labs(x = "Unadjusted SEA seroprevalence (%)", y = "Age standardized SEA seroprevalence (%)", tag = "B") +
   coord_cartesian(xlim = c(0,1),ylim = c(0,1))
 
 
@@ -201,7 +201,7 @@ plot_unadj_adj_kk <- ggplot(data = dvil_std2, aes(x = kk_prev, y = kk_prev_gam))
   geom_point(alpha = 0.7, color = vircols[3]) +
   scale_x_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
   scale_y_continuous(breaks = seq(0,1,by=0.2), labels = sprintf("%1.0f",seq(0,1,by=0.2)*100)) +
-  labs(x = "Unadjusted Kato-Katz prevalence (%)", y = "Age standardized Kato-Katz prevalence (%)", tag = "c") +
+  labs(x = "Unadjusted Kato-Katz prevalence (%)", y = "Age standardized Kato-Katz prevalence (%)", tag = "C") +
   coord_cartesian(xlim = c(0,1),ylim = c(0,1)) 
 
 ```
@@ -219,7 +219,7 @@ plot_age_distributions <- ggplot(data = d2_plot, aes(x = agey)) +
   geom_rug(color = vircols[3],alpha = 0.2, sides = "b") +
   geom_density(data = d_agest,color = "gray20", lwd=0.3) +
   # geom_line(data = d_agest, stat = "density", color = "gray50", lwd=0.2) +
-  labs(x = "age, years", title = "community age distributions", tag = "a")
+  labs(x = "age, years", title = "community age distributions", tag = "A")
 
 ```
 
