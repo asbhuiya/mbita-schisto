@@ -242,7 +242,7 @@ dvil_spatial <- dvil2 %>%
 saveRDS(dvil_spatial,file=here("data","mbita_spatial.rds"))
 write_csv(dvil_spatial,path=here("data","mbita_spatial.csv"))
 ```
-# Supplementary Figure 5
+# Figure S2
 
 ## Assess bivariate relationships between covariates and outcomes
 
