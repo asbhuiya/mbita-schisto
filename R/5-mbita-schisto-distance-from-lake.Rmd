@@ -298,6 +298,25 @@ fit_kk_dist_ci <- fit_kk_dist_ci %>%
          )
 ```
 
+Past studies have suggested that many of the highest infection communities are on Rusinga island. Include a random effect for Rusinga island to assess whether the SEA-distance relationship is still statistically significant.
+
+```{r sea and kk prevalence vs dist with island re}
+d2 <- d2 %>%
+  mutate(rusinga = ifelse(vid %in% c("1","2","3","4","5","8","10","11","15","16","26"),"Yes","No"),
+         rusinga = factor(rusinga)
+         )
+
+# SEA by distance
+fit_sea_dist_island <- mgcv::gam(sea_pos~s(dist_victoria,bs="cr",k=4) +  s(vid,bs="re",by=dummy) + s(rusinga, bs = "re", by = dummy),
+                          family="binomial",
+                          data=d2)
+summary(fit_sea_dist_island)
+# compare AIC and BIC with model that excludes island RE
+AIC(fit_sea_dist_island,fit_sea_dist)
+BIC(fit_sea_dist_island,fit_sea_dist)
+
+
+```
 
 ## KK prevalence vs. distance
 
