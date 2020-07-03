@@ -1,6 +1,6 @@
 ---
 title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
-subtitle: "Figure 1, Figure S1, Figure S5 maps with model based geostatistics"
+subtitle: "Figure 1, Figure S2, Figure S3 maps with model based geostatistics"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"
 output: 
@@ -555,11 +555,12 @@ map_sea <- leaflet(width = "100%") %>%
                    lng = ~ lon, lat = ~ lat,
                    # radius = markerscale*sqrt((dvil3_2014$sea_prev*100)/pi),
                    radius = 4,
-                   color = ~'black', fill = ~ NA, weight=1,opacity = 1,
-                   popup=paste(dvil3_2014$vid, "<br>",
-                               "N pos / tested: ", dvil3_2014$sea_n," / ",dvil3_2014$sea_N,"<br>",
-                         "SEA seroprevalence: ", sprintf("%1.0f",dvil3_2014$sea_prev*100),"%","<br>",
-                         "predicted: ",sprintf("%1.0f",dvil3_2014$pred_sea*100),"%",sep="")
+                   color = ~'black', fill = ~ NA, weight=1,opacity = 1
+                   # remove pop ups to protect confidentiality.
+                   # popup=paste(dvil3_2014$vid, "<br>",
+                   #             "N pos / tested: ", dvil3_2014$sea_n," / ",dvil3_2014$sea_N,"<br>",
+                   #       "SEA seroprevalence: ", sprintf("%1.0f",dvil3_2014$sea_prev*100),"%","<br>",
+                   #       "predicted: ",sprintf("%1.0f",dvil3_2014$pred_sea*100),"%",sep="")
               ) %>%
   
   # add scale bar and legends
@@ -674,11 +675,12 @@ map_kk <- leaflet(width = "100%") %>%
                    lng = ~ lon, lat = ~ lat,
                    # radius = markerscale*sqrt((dvil3_2014$kk_prev*100)/pi),
                    radius = 4,
-                   color = ~'black', fill = ~ NA, weight=1, opacity = 1,
-                   popup=paste(dvil3_2014$vid, "<br>",
-                               "N pos / tested: ", dvil3_2014$kk_n," / ",dvil3_2014$kk_N,"<br>",
-                         "Kato-Katz prevalence: ", sprintf("%1.0f",dvil3_2014$kk_prev*100),"%","<br>",
-                         "predicted: ",sprintf("%1.0f",dvil3_2014$pred_kk*100),"%",sep="")
+                   color = ~'black', fill = ~ NA, weight=1, opacity = 1
+                   # remove pop ups to protect confidentiality.
+                   # popup=paste(dvil3_2014$vid, "<br>",
+                   #             "N pos / tested: ", dvil3_2014$kk_n," / ",dvil3_2014$kk_N,"<br>",
+                   #       "Kato-Katz prevalence: ", sprintf("%1.0f",dvil3_2014$kk_prev*100),"%","<br>",
+                   #       "predicted: ",sprintf("%1.0f",dvil3_2014$pred_kk*100),"%",sep="")
               ) %>%
   
   # add scale bar and legends
