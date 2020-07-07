@@ -333,17 +333,63 @@ d4 <- d3 %>%
          )
 
 #----------------------------------------
-# fit a model allowing age-specific
-# seroprevalence to vary by group
+# compare a model that allows for 
+# separate baseline hazards by distance
+# group versus one that assumes a common
+# baseline hazard (parameterized with the
+# age spline). 
 #----------------------------------------
-fitp_dist <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9,by=gt15) + 
-                         s(agey,bs="cr",k=9,by=lt15) + 
+fitp_dist_noph <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9,by=gt15) +
+                         s(agey,bs="cr",k=9,by=lt15) +
                          s(vid,bs="re",by=dummy) +
-                         yearf, 
+                         yearf,
+                       family=binomial(link = "cloglog"),
+                       data=d4)
+# newd0 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=0,lt15=1)
+# newd1 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=1,lt15=0)
+# fitp_dist0_ci <- gamCI(m=fitp_dist,newdata=newd0,nreps=10000)
+# fitp_dist1_ci <- gamCI(m=fitp_dist,newdata=newd1,nreps=10000)
+
+#----------------------------------------
+# fit the same model, but allowing
+# for a common baseline hazard
+#----------------------------------------
+fitp_dist <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + 
+                         s(vid,bs="re",by=dummy) +
+                         yearf +
+                         lt15, 
                        family=binomial(link = "cloglog"), 
                        data=d4)
-newd0 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=0,lt15=1)
-newd1 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=1,lt15=0)
+#----------------------------------------
+# compare model AIC and BIC
+# fit_age_yr is a model with a single
+# smooth, but no indicator for distance
+# fitp_dist is a model with a single
+# smooth, plus an indicator for distance
+# fitp_dist_noph is a model that allows
+# for separate smooths by distance
+#
+# no support for the most complex model
+# with separate age smooths, so go with
+# the more parsimonious one with a 
+# common smooth and an indicator for distance
+#----------------------------------------
+AIC(fit_age_yr, fitp_dist, fitp_dist_noph)
+BIC(fit_age_yr, fitp_dist, fitp_dist_noph)
+
+#----------------------------------------
+# summary of the model fit, 
+# including the log(HR) for distance
+# averaged over all ages
+#----------------------------------------
+summary(fitp_dist)
+
+#----------------------------------------
+# get distance-stratified model predictions
+# of prevalence to estimate FOI
+#----------------------------------------
+newd0 <- d4 %>%  mutate(dummy=0, yearf = "2012",lt15=0)
+newd1 <- d4 %>%  mutate(dummy=0, yearf = "2012",lt15=1)
 fitp_dist0_ci <- gamCI(m=fitp_dist,newdata=newd0,nreps=10000)
 fitp_dist1_ci <- gamCI(m=fitp_dist,newdata=newd1,nreps=10000)
 
@@ -355,14 +401,9 @@ fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
          uprS = cloglogfn(uprS),
          lwrS = cloglogfn(lwrS),
          ) %>%
-  mutate(dist=factor(gt15,levels=c(0,1),labels=c("<1.5 km from lake",">1.5 km from lake")))
+  mutate(dist=factor(lt15,levels=c(1,0),labels=c("<1.5 km from lake",">1.5 km from lake")))
 
-# Compare AIC and BIC
-# with a model that does not allow 
-# for separate baseline hazards by distance
-# (estimated above, in an earlier code chunk)
-AIC(fit_age_yr, fitp_dist)
-BIC(fit_age_yr, fitp_dist)
+
 ```
 
 ## Figure of seroprevalence by age, stratified by distance from the lake
@@ -395,12 +436,12 @@ pageprev_sea01
 # Conditional estimates of FOI
 #----------------------------------------
 set.seed(123)
-newd0 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=0,lt15=1,yearf="2012",vid="1",dummy=0)
-newd1 <- data.frame(agey=seq(0.2,5,by=0.01),gt15=1,lt15=0,yearf="2012",vid="1",dummy=0)
+newd0 <- data.frame(agey=seq(0.2,5,by=0.01),lt15=0,yearf="2012",vid="1",dummy=0)
+newd1 <- data.frame(agey=seq(0.2,5,by=0.01),lt15=1,yearf="2012",vid="1",dummy=0)
 foi_ests0 <- foiCI(m=fitp_dist,newdata=newd0,fdvar="agey")
 foi_ests1 <- foiCI(m=fitp_dist,newdata=newd1,fdvar="agey")
 foi_dist <- bind_rows(foi_ests0,foi_ests1) %>%
-  mutate(dist=factor(gt15,levels=c(0,1),labels=c("<1.5 km from lake",">1.5 km from lake")))
+  mutate(dist=factor(lt15,levels=c(1,0),labels=c("<1.5 km from lake",">1.5 km from lake")))
 ```
 
 ## Figure of FOI by age, stratified by distance from the lake
