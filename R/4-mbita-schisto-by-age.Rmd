@@ -382,7 +382,13 @@ BIC(fit_age_yr, fitp_dist, fitp_dist_noph)
 # including the log(HR) for distance
 # averaged over all ages
 #----------------------------------------
-summary(fitp_dist)
+(fitp_dist_sum <- summary(fitp_dist) )
+
+# print the hazard ratio for <1.5km vs further
+dist_hr <- exp(fitp_dist$coefficients[4])
+dist_hr_se <- diag(fitp_dist_sum$cov.unscaled)[4]
+dist_hr_print <- paste0(sprintf("%1.1f",dist_hr)," (",sprintf("%1.1f",exp(log(dist_hr) - 1.96*dist_hr_se )),", ",sprintf("%1.1f",exp(log(dist_hr) + 1.96*dist_hr_se )),")")
+cat("The hazard ratio (HR) of SEA seroconversion\nfor children <1.5km from the lake is: HR (95% CI) = ", dist_hr_print)
 
 #----------------------------------------
 # get distance-stratified model predictions
@@ -498,9 +504,11 @@ dist_cat <- dvil %>%
   
 ```
 
-## Fit a stratified seroprevalence model by quntiles
+## Proportional hazards model with quintiles of distance
 
-```{r analysis by distq}
+semiparametric proportional hazards model with a common baseline hazard in age (per the primary analysis) but including indicators for quintiles of distance.
+
+```{r analysis by distq, warning= FALSE}
 #-----------------------------
 # create indicators for 
 # children living in qunitiles
@@ -508,34 +516,45 @@ dist_cat <- dvil %>%
 #-----------------------------
 d5 <- d4 %>%
   left_join(dist_cat,by="vid") %>%
-  mutate(dq1 = ifelse(distq=="Q1",1,0),
-         dq2 = ifelse(distq=="Q2",1,0),
-         dq3 = ifelse(distq=="Q3",1,0),
-         dq4 = ifelse(distq=="Q4",1,0),
-         dq5 = ifelse(distq=="Q5",1,0),
-         )
+  mutate(distq = relevel(distq,ref = "Q5"))
 
 #----------------------------------------
 # fit a model allowing age-specific
-# seroprevalence to vary by group
+# seroprevalence to vary by distance quintile
 #----------------------------------------
-fitp_distq <- mgcv::gam(sea_pos~s(agey,bs="cr",k=5,by=dq1) +
-                          s(agey,bs="cr",k=5,by=dq2) +
-                          s(agey,bs="cr",k=5,by=dq3) +
-                          s(agey,bs="cr",k=5,by=dq4) +
-                          s(agey,bs="cr",k=5,by=dq5) +
+fitp_distq <- mgcv::gam(sea_pos~s(agey,bs="cr",k=5) +
+                          distq +
+                          yearf +
                           s(vid,bs="re",by=dummy),
                        family=binomial(link = "cloglog"),
                        data=d5)
 
 #----------------------------------------
+# obtain hazard ratios and 95% CIs
+# reference is Q5 (furthest from the lake)
+#----------------------------------------
+distq_sum <- summary(fitp_distq)
+distq_hr <- exp(fitp_distq$coefficients[2:5])
+distq_hr_se <- diag(distq_sum$cov.unscaled)[2:5]
+distq_hr_lb <- exp(log(distq_hr) - 1.96*distq_hr_se )
+distq_hr_ub <- exp(log(distq_hr) + 1.96*distq_hr_se )
+distq_hrs <- data.frame(distq = c("Q1","Q2","Q3","Q4"),
+                        hr=distq_hr,
+                        hr_se = distq_hr_se, 
+                        hr_lb = distq_hr_lb, 
+                        hr_ub = distq_hr_ub) %>%
+  bind_rows(data.frame(distq = "Q5",hr = 1)) %>%
+  mutate(distq = factor(distq))
+
+
+#----------------------------------------
 # prediction datasets with distance set to each quintile
 #----------------------------------------
-newd1 <- d5 %>%  mutate(dummy=0,dq1=1,dq2=0,dq3=0,dq4=0,dq5=0)
-newd2 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=1,dq3=0,dq4=0,dq5=0)
-newd3 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=0,dq3=1,dq4=0,dq5=0)
-newd4 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=0,dq3=0,dq4=1,dq5=0)
-newd5 <- d5 %>%  mutate(dummy=0,dq1=0,dq2=0,dq3=0,dq4=0,dq5=1)
+newd1 <- d5 %>%  mutate(dummy=0,yearf="2012",distq = "Q1")
+newd2 <- d5 %>%  mutate(dummy=0,yearf="2012",distq = "Q2")
+newd3 <- d5 %>%  mutate(dummy=0,yearf="2012",distq = "Q3")
+newd4 <- d5 %>%  mutate(dummy=0,yearf="2012",distq = "Q4")
+newd5 <- d5 %>%  mutate(dummy=0,yearf="2012",distq = "Q5")
 
 #----------------------------------------
 # estimate fitted values and simultaneous 95% CIs for each
@@ -572,13 +591,16 @@ dist_qs_labs <- c(
 )
 
 fitp_distq_ci <- fitp_distq_ci %>%
-    mutate(distq = NA,
-         distq = ifelse(dq1 == 1,dist_qs_labs[1],distq),
-         distq = ifelse(dq2 == 1,dist_qs_labs[2],distq),
-         distq = ifelse(dq3 == 1,dist_qs_labs[3],distq),
-         distq = ifelse(dq4 == 1,dist_qs_labs[4],distq),
-         distq = ifelse(dq5 == 1,dist_qs_labs[5],distq)
+    mutate(distql = NA,
+         distql = ifelse(distq == "Q1",dist_qs_labs[1],distql),
+         distql = ifelse(distq == "Q2",dist_qs_labs[2],distql),
+         distql = ifelse(distq == "Q3",dist_qs_labs[3],distql),
+         distql = ifelse(distq == "Q4",dist_qs_labs[4],distql),
+         distql = ifelse(distq == "Q5",dist_qs_labs[5],distql)
   )
+
+distq_hrs <- distq_hrs %>%
+  mutate(distql = dist_qs_labs)
 
 ```
 
@@ -590,13 +612,13 @@ fitp_distq_ci <- fitp_distq_ci %>%
 # seroprevalence curves
 #----------------------------------------
 distqcols <- cbPalette[c(3,2,4,7,6)]
-pageprev_sea_distq <- ggplot(data=fitp_distq_ci,aes(x=agey,y=fit,group=distq,color=distq,fill=distq)) +
+pageprev_sea_distq <- ggplot(data=fitp_distq_ci,aes(x=agey,y=fit,group=distql,color=distql,fill=distql)) +
   # geom_ribbon(aes(ymin=lwrS,ymax=uprS),alpha=0.2,color=NA) +
   geom_line(lwd=0.5,alpha=1) +
   scale_color_manual(values=distqcols,guide=guide_legend(title="distance quintile (m)"))+
   scale_fill_manual(values=distqcols,guide=FALSE)+
   scale_y_continuous(breaks=seq(0,1,by=0.2),labels=seq(0,100,by=20))+
-  labs(x="age, years",y="seroprevalence (%)") +
+  labs(x="age, years",y="SEA seroprevalence (%)", tag = "A") +
   coord_cartesian(ylim=c(0,1),xlim=c(0,5))+
   theme_minimal() +
   theme(legend.position=c(0.3,0.8),
@@ -605,8 +627,36 @@ pageprev_sea_distq <- ggplot(data=fitp_distq_ci,aes(x=agey,y=fit,group=distq,col
 
 pageprev_sea_distq
 
-# save png file
-ggsave(filename=here("output","mbita-sea-age-seroprev-distq.png"),plot=pageprev_sea_distq,device="png",width=3*1.18,height=3)
+```
+
+## Figure of hazard ratios of SEA seroconversion by distance quintile 
+
+```{r figure of SEA HRs by distance quintile, warning=FALSE}
+#----------------------------------------
+# hazard ratios
+#----------------------------------------
+phr_sea_distq <- ggplot(data = distq_hrs, aes(x = distq, y = hr, color = distql)) +
+  geom_abline(intercept=log(1),slope=0)+
+  geom_errorbar(aes(ymin = hr_lb, ymax = hr_ub), width=0) +
+  geom_point() +
+  annotate("text",x = 5, y = 1.25, label = "ref.") +
+  scale_color_manual(values=distqcols,guide=guide_legend(title="distance quintile (m)"))+
+  scale_fill_manual(values=distqcols,guide=FALSE)+
+  scale_y_continuous(breaks = c(1,2,4,8,16), trans = "log") +
+  labs(x = "distance quintile", y = "hazard ratio, SEA seroconversion", tag = "B") +
+  theme_minimal() +
+  theme(legend.position="none",
+        panel.grid.minor.y = element_blank()
+        )
+
+phr_sea_distq
+```
+
+## Save a composite figure
+```{r SEA by distance quintile composite figure, warning= FALSE}
+p_distq_comp <- grid.arrange(pageprev_sea_distq,phr_sea_distq, nrow= 1, ncol =2 )
+
+ggsave(filename = here("output","mbita-sea-seroprev-hr-distq.png"), plot = p_distq_comp, height = 4, width = 8)
 
 ```
 
