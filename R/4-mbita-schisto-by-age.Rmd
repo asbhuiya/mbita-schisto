@@ -475,7 +475,12 @@ Create a composite figure for 4c and 4d
 ```{r comp figure for SEA, fig.width=6, fig.height = 8}
 
 comp_sea_dist <- grid.arrange(pageprev_sea01,foiplot2,nrow = 2, ncol = 1)
-ggsave(filename=here("output","mbita-SEA-by-age-dist.png"),plot=comp_sea_dist,device="png",width=3*1.18,height=6)
+
+# png output
+ggsave(filename=here("output","mbita-SEA-by-age-dist.png"),plot=comp_sea_dist,device="png",width=3.42,height=6)
+
+# pdf output
+ggsave(filename=here("output","mbita-SEA-by-age-dist.pdf"),plot=comp_sea_dist,device="pdf",width=3.42,height=6)
 
 ```
 

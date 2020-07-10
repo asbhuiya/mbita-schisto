@@ -445,8 +445,6 @@ pfoidist <- ggplot(data=dvil3,aes(x=dist_victoria/1000,y=lambda,ymin=lambda_lb,y
   theme(legend.position="none")
 pfoidist
 
-# save png file
-ggsave(filename=here("output","mbita-SEA-foi-v-dist.png"),plot=pfoidist,device="png",width=3*1.18,height=3)
 ```
 
 ## Composite Fig 4a 4b
@@ -455,7 +453,12 @@ Create a composite figure for 4a and 4b
 ```{r comp figure for SEA, fig.width=6, fig.height = 8}
 
 comp_sea_dist <- grid.arrange(pspdist,pfoidist,nrow = 2, ncol = 1)
-ggsave(filename=here("output","mbita-SEA-v-dist.png"),plot=comp_sea_dist,device="png",width=3*1.18,height=6)
+
+# save png file
+ggsave(filename=here("output","mbita-SEA-v-dist.png"),plot=comp_sea_dist,device="png",width=3.42,height=6)
+
+# save pdf file
+ggsave(filename=here("output","mbita-SEA-v-dist.pdf"),plot=comp_sea_dist,device="pdf",width=3.42,height=6)
 
 ```
 

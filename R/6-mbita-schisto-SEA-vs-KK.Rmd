@@ -149,8 +149,6 @@ scatter_sea_kk <- ggplot(data=dvil,aes(x=kk_prev,y=sea_prev, color = yearf))+
         panel.grid.minor=element_blank())
 scatter_sea_kk
 
-ggsave(filename = here("output","mbita-sea-kk-scatter.png"),plot = scatter_sea_kk, device = "png",width=4,height=4)
-
 ```
 
 Print the values for specific estimates reported in text
@@ -240,7 +238,7 @@ sp_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=prevsea)) +
   annotate("text",x=0.05,y=0.95,label=paste("rho ==",deparse(corpseakkmu_print)),parse=TRUE, hjust=0)+
   scale_y_continuous(breaks=seq(0,1,by=0.1),labels=sprintf("%1.0f",seq(0,1,by=0.1)*100))+
   coord_cartesian(ylim=c(0,1),xlim=c(0,1.05))+
-  labs(x="",y="SEA seroprevalence (%)",tag = "B") +
+  labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y="SEA seroprevalence (%)",tag = "B") +
   theme(panel.grid.minor.y=element_blank())
 
 sp_epg_plot
@@ -253,7 +251,8 @@ foi_epg_plot <- ggplot(data=d3c,aes(x=meankk,y=lambda)) +
   scale_y_continuous(breaks=seq(0,0.8,by=0.1))+
   coord_cartesian(ylim=c(0,0.85),xlim = c(0,1.05))+
   labs(x=expression(paste("mean ",log[10],italic(" S. mansoni"), " eggs per gram")),y=expression(paste("force of infection (",lambda,"), seroconversion rate / year")) ,eval=TRUE, tag = "C") +
-  theme(panel.grid.minor.y=element_blank())
+  theme(panel.grid.minor.y=element_blank(),
+        axis.title.y.left = element_text(size=10))
 
 foi_epg_plot
 
@@ -264,7 +263,12 @@ foi_epg_plot
 ```{r composite figure 2, fig.width = 10, fig.height = 10}
 blank <- grid.rect(gp=gpar(col="white"), draw = FALSE)
 comp_fig <- grid.arrange(scatter_sea_kk,sp_epg_plot,blank,foi_epg_plot,nrow=2,ncol=2)
-ggsave(filename=here("output","mbita-village-sea-kk-comparison.png"),plot=comp_fig,device="png",width=8,height=8)
+
+# save png file
+ggsave(filename=here("output","mbita-village-sea-kk-comparison.png"),plot=comp_fig,device="png",width=7,height=7)
+
+# save pdf file
+ggsave(filename=here("output","mbita-village-sea-kk-comparison.pdf"),plot=comp_fig,device="pdf",width=7,height=7)
 ```
 
 
@@ -561,7 +565,11 @@ sscorfoip <- ggplot(data=sscorr_foi_long,aes(x=ss,y=cor, color = measure)) +
   theme(legend.position="none")
 sscorfoip
 
-ggsave(filename=here("output","mbita-village-foi-correlation-ss-sim.png"),plot=sscorfoip,device="png",width=8,height=4)
+# save png file
+ggsave(filename=here("output","mbita-village-foi-correlation-ss-sim.png"),plot=sscorfoip,device="png",width=7,height=3.5)
+
+# save pdf file
+ggsave(filename=here("output","mbita-village-foi-correlation-ss-sim.pdf"),plot=sscorfoip,device="pdf",width=7,height=3.5)
 
 ```
 
