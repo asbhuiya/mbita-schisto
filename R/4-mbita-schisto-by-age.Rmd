@@ -1,6 +1,6 @@
 ---
 title: "Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response"
-subtitle: "Fig 4c, Fig 4d, Fig S5 seroprevalence and force of infection by age"
+subtitle: "Fig 4c, Fig 4d, Fig S5, Table S1 seroprevalence and force of infection by age"
 author: "Ben Arnold ben.arnold@ucsf.edu"
 date: "run `r Sys.time()`"
 output:
@@ -107,17 +107,38 @@ pdist
 
 # Age dependent seroprevalence
 
-Estimate age-dependent seroprevalence using a semi-parametric spline fit.  Include community-level random effects to account for repeated measures within community. Estimate an approximate, simultaneous 95% confidence interval on the spline fit.
+Model seropositivity ($Y$) as a function of age ($A$), study year ($S$), and distance from Lake Victoria ($D$). Under the assumption that SEA IgG response is durable, seroprevalence by age is a form of current status data and age-seroprevalence represents a cumulative distribution of infection.  Assume a generalized linear model with complementary log-log link, which is a current status proportional hazards model. Note that the hazard in survival analysis is synonomous with force of infection, and here is estimated by the seroconversion rate.  All models include community-level random effects to account for repeated measures within community ($b$). For child $j$ in village $i$, we consider a series of models of increasing complexity:
+
+* Model 1, exponential survival model with constant hazard, $\lambda$: $\log - \log \left[ 1 - P(Y_{ij} | A_{ij}, b_i) \right] = \log \lambda + \log A_{ij} + b_i$
+
+* Model 2, semiparametric hazard with age, $\lambda(a)$: $\lambda$: $\log - \log \left[ 1 - P(Y_{ij} | A_{ij}, b_i) \right] = g(A_{ij}) + b_i$
+
+* Model 3, add fixed effects for study year ($I(S_{ij}=s)$: $\log - \log \left[ 1 - P(Y_{ij} | A_{ij}, b_i) \right] = g(A_{ij}) + \beta_2 I(S_{ij} = 2013) + \beta_3 I(S_{ij} = 2014) + b_i$
+
+Estimate an approximate, simultaneous 95% confidence interval on the spline fit.
 
 ```{r agecurves model selection}
 
-# constant rate (exponential) proportional hazards current status model
+#---------------------------------
+# Model 1
+# constant rate (exponential) 
+# proportional hazards current status model
+#---------------------------------
 fit_exp <- mgcv::gam(sea_pos~1+ s(vid,bs="re",by=dummy),offset = log(agey), family=binomial(link = "cloglog"), data=d3)
 
-# semiparamtric proportional hazards current status model
+#---------------------------------
+# Model 2
+# semiparamtric proportional hazards 
+# current status model
+#---------------------------------
 fit_age <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family=binomial(link = "cloglog"), data=d3)
 
-# semiparamtric proportional hazards current status model plus fixed effects for study year
+#---------------------------------
+# Model 3
+# semiparamtric proportional hazards 
+# current status model 
+# plus fixed effects for study year
+#---------------------------------
 fit_age_yr <- mgcv::gam(sea_pos~ yearf + s(agey,bs="cr",k=9) + s(vid,bs="re",by=dummy), family=binomial(link = "cloglog"), data=d3)
 
 # compare AIC and BIC to examine increased model complexity
@@ -315,6 +336,12 @@ foiplot1
 
 In the descriptive analyses, most villages further than 1.5 km of Lake Victoria had distinctly lower village-specific estimates of force of infection.  Stratify the age-seroprevalence curves and age-specific force of infection estimates by distance from the lake.
 
+Expanding from the 3 models considered above, consider two additional models that allow for the hazard (force of infection) to vary by distance from Lake Victoria. The first (model 4) retains the proportional hazards assumption between villages closer to the lake and further from the lake. Model 5 relaxes this assumption and allows the baseline hazard to vary separately within groups using a separate spline by age $g(\cdot)$ for each distance group.
+
+* Model 4, add a fixed effect for >1.5 km from the lake: $\log - \log \left[ 1 - P(Y_{ij} | A_{ij}, b_i) \right] = g(A_{ij}) + \beta_1 I(D_i <1.5) + \beta_2 I(S_{ij} = 2013) + \beta_3 I(S_{ij} = 2014) + b_i$
+
+* Model 5, allow the baseline hazard to vary by distance group, using separate splines by age: $\log - \log \left[ 1 - P(Y_{ij} | A_{ij}, b_i) \right] = g_1(A_{ij})I(D_i <1.5) + g_2(A_{ij})I(D_i \geq1.5) + \beta_2 I(S_{ij} = 2013) + \beta_3 I(S_{ij} = 2014) + b_i$
+
 ## Fit a stratified seroprevalence model
 
 ```{r analysis by 1500m}
@@ -333,7 +360,19 @@ d4 <- d3 %>%
          )
 
 #----------------------------------------
-# compare a model that allows for 
+# Model 4
+# add a fixed effect for distance <1.5km
+# assume a common baseline hazard
+#----------------------------------------
+fitp_dist <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + 
+                         s(vid,bs="re",by=dummy) +
+                         yearf +
+                         lt15, 
+                       family=binomial(link = "cloglog"), 
+                       data=d4)
+
+#----------------------------------------
+# Model 5 allow for 
 # separate baseline hazards by distance
 # group versus one that assumes a common
 # baseline hazard (parameterized with the
@@ -345,21 +384,7 @@ fitp_dist_noph <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9,by=gt15) +
                          yearf,
                        family=binomial(link = "cloglog"),
                        data=d4)
-# newd0 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=0,lt15=1)
-# newd1 <- d4 %>%  mutate(dummy=0, yearf = "2012",gt15=1,lt15=0)
-# fitp_dist0_ci <- gamCI(m=fitp_dist,newdata=newd0,nreps=10000)
-# fitp_dist1_ci <- gamCI(m=fitp_dist,newdata=newd1,nreps=10000)
 
-#----------------------------------------
-# fit the same model, but allowing
-# for a common baseline hazard
-#----------------------------------------
-fitp_dist <- mgcv::gam(sea_pos~s(agey,bs="cr",k=9) + 
-                         s(vid,bs="re",by=dummy) +
-                         yearf +
-                         lt15, 
-                       family=binomial(link = "cloglog"), 
-                       data=d4)
 #----------------------------------------
 # compare model AIC and BIC
 # fit_age_yr is a model with a single
@@ -411,6 +436,39 @@ fitp_dist_ci <- bind_rows(fitp_dist0_ci,fitp_dist1_ci) %>%
 
 
 ```
+
+# Table S1 Summary of models and their fit
+
+Create a summary table of models along with their AIC and BIC values.
+
+Model 4 (semi-parametric proportional hazards model controlling for year) is the model with lowest AIC and BIC
+
+```{r model AIC and BIC summary table}
+# get model AIC and BIC values from those above
+aics <- AIC(fit_exp, fit_age, fit_age_yr, fitp_dist, fitp_dist_noph)
+bics <- BIC(fit_exp, fit_age, fit_age_yr, fitp_dist, fitp_dist_noph)
+
+# consolidate information into a single data frame
+model_fit_tab <- data.frame(model_label = c(
+  "model 1: exponential (constant rate) model",
+  "model 2: semi-parametric proportional hazards model",
+  "model 3: semi-parametric proportional hazards model, year FE",
+  "model 4: semi-parametric proportional hazards model, year FE, distance",
+  "model 5: semi-parametric separate baseline hazard by distance, year FE"),
+  df = aics$df,
+  aic = aics$AIC,
+  bic = bics$BIC
+  )
+
+knitr::kable(model_fit_tab,
+             digits = c(0,1,0,0),
+             col.names = c("Model","df*","AIC","BIC")) %>%
+  kable_styling(bootstrap_options = "striped", full_width = TRUE) %>%
+  footnote(symbol = c("Approximate model degrees of freedom"))
+```
+
+
+
 
 ## Figure of seroprevalence by age, stratified by distance from the lake
 
