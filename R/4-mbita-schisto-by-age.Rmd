@@ -278,7 +278,7 @@ foi_community_ests <- foreach(vidi = levels(d3$vid), .combine = rbind) %do% {
 # use in the comparison with other community-level S. mansoni metrics
 # and down-stream data visualizations
 #------------------------------------
-write_rds(foi_community_ests,path = here("output","mbita-village-foi.rds"))
+write_rds(foi_community_ests,path = here("data","mbita-village-foi.rds"))
 
 ```
 

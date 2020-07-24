@@ -173,7 +173,7 @@ Community level force of infection was estimated using a semi-parametric proport
 # hazards model estimated in 
 # age-specific FOI script
 #-----------------------------------
-foi_ests <- read_rds(path = here("output","mbita-village-foi.rds")) %>%
+foi_ests <- read_rds(path = here("data","mbita-village-foi.rds")) %>%
   rename(lambda = mufoi, lambda_se = mufoi_se, lambda_lb = mufoi_lb, lambda_ub = mufoi_ub)
 
 ```
