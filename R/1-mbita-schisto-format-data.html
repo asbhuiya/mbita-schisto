@@ -1263,6 +1263,22 @@ window.buildTabsets = function(tocID) {
 };
 
 </script>
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
 
 
 <style type="text/css">code{white-space: pre;}</style>
@@ -1566,7 +1582,7 @@ div.tocify {
 <h1 class="title toc-ignore">Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response</h1>
 <h3 class="subtitle">Data processing script</h3>
 <h4 class="author">Ben Arnold <a href="mailto:ben.arnold@ucsf.edu" class="email">ben.arnold@ucsf.edu</a></h4>
-<h4 class="date">run 2020-07-03 10:37:34</h4>
+<h4 class="date">run 2020-07-24 11:52:49</h4>
 
 </div>
 
@@ -1581,10 +1597,10 @@ div.tocify {
 <span id="cb3-3"><a href="#cb3-3"></a><span class="co">#--------------------------------</span></span>
 <span id="cb3-4"><a href="#cb3-4"></a><span class="kw">source</span>(<span class="kw">here</span>(<span class="st">&quot;R/mbita-schisto-Config.R&quot;</span>))</span></code></pre></div>
 <pre><code>## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
-<pre><code>## ✔ ggplot2 3.2.1     ✔ purrr   0.3.3
-## ✔ tibble  2.1.3     ✔ dplyr   0.8.3
-## ✔ tidyr   1.0.0     ✔ stringr 1.4.0
-## ✔ readr   1.3.1     ✔ forcats 0.4.0</code></pre>
+<pre><code>## ✔ ggplot2 3.3.2     ✔ purrr   0.3.4
+## ✔ tibble  3.0.3     ✔ dplyr   1.0.0
+## ✔ tidyr   1.1.0     ✔ stringr 1.4.0
+## ✔ readr   1.3.1     ✔ forcats 0.5.0</code></pre>
 <pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 ## ✖ dplyr::filter() masks stats::filter()
 ## ✖ dplyr::lag()    masks stats::lag()</code></pre>
@@ -1611,8 +1627,7 @@ div.tocify {
 <pre><code>## The following object is masked from &#39;package:dplyr&#39;:
 ## 
 ##     group_rows</code></pre>
-<pre><code>## Warning: package &#39;sf&#39; was built under R version 3.6.2</code></pre>
-<pre><code>## Linking to GEOS 3.7.2, GDAL 2.4.2, PROJ 5.2.0</code></pre>
+<pre><code>## Linking to GEOS 3.8.1, GDAL 3.1.1, PROJ 6.3.1</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;raster&#39;</code></pre>
 <pre><code>## The following object is masked from &#39;package:dplyr&#39;:
@@ -1630,7 +1645,7 @@ div.tocify {
 <pre><code>## The following object is masked from &#39;package:dplyr&#39;:
 ## 
 ##     collapse</code></pre>
-<pre><code>## This is mgcv 1.8-28. For overview type &#39;help(&quot;mgcv-package&quot;)&#39;.</code></pre>
+<pre><code>## This is mgcv 1.8-31. For overview type &#39;help(&quot;mgcv-package&quot;)&#39;.</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;foreach&#39;</code></pre>
 <pre><code>## The following objects are masked from &#39;package:purrr&#39;:
@@ -1645,54 +1660,54 @@ div.tocify {
 <p>Won KY, Kanyi HM, Mwende FM, Wiegand RE, Brook Goodhew E, Priest JW, et al. Multiplex Serologic Assessment of Schistosomiasis in Western Kenya: Antibody Responses in Preschool Age Children as a Measure of Reduced Transmission. <em>Am J Trop Med Hyg.</em> 2017; 16–0665. <a href="https://www.ncbi.nlm.nih.gov/pubmed/28719280" class="uri">https://www.ncbi.nlm.nih.gov/pubmed/28719280</a></p>
 <p>The script below loads the full dataset, limits it to variables relevant to the present analysis for public distribution, and stores village latitude and longitude in a separate file (not publicly shared) to protect participant confidentiality.</p>
 <p>NOTE: This script is provided for completness but cannot be run publicly because the raw, underlying data are not available.</p>
-<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1"></a><span class="co">#---------------------------</span></span>
-<span id="cb30-2"><a href="#cb30-2"></a><span class="co"># Load the data</span></span>
-<span id="cb30-3"><a href="#cb30-3"></a><span class="co">#---------------------------</span></span>
-<span id="cb30-4"><a href="#cb30-4"></a>d &lt;-<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_psac.rds&quot;</span>))</span>
-<span id="cb30-5"><a href="#cb30-5"></a></span>
-<span id="cb30-6"><a href="#cb30-6"></a>d2 &lt;-<span class="st"> </span>d <span class="op">%&gt;%</span></span>
-<span id="cb30-7"><a href="#cb30-7"></a><span class="st">  </span>dplyr<span class="op">::</span><span class="kw">select</span>(year,vid,arm,pid,agey,sex,sea,sm25,sm_epg)</span>
-<span id="cb30-8"><a href="#cb30-8"></a></span>
-<span id="cb30-9"><a href="#cb30-9"></a><span class="co">#---------------------------</span></span>
-<span id="cb30-10"><a href="#cb30-10"></a><span class="co"># strip real ID info</span></span>
-<span id="cb30-11"><a href="#cb30-11"></a><span class="co">#---------------------------</span></span>
-<span id="cb30-12"><a href="#cb30-12"></a>d2 &lt;-<span class="st"> </span>d2 <span class="op">%&gt;%</span></span>
-<span id="cb30-13"><a href="#cb30-13"></a><span class="st">  </span><span class="kw">mutate</span>(<span class="dt">pid =</span> <span class="kw">row_number</span>(),</span>
-<span id="cb30-14"><a href="#cb30-14"></a>         <span class="dt">pid =</span> <span class="kw">as.character</span>(pid))</span>
-<span id="cb30-15"><a href="#cb30-15"></a></span>
-<span id="cb30-16"><a href="#cb30-16"></a></span>
-<span id="cb30-17"><a href="#cb30-17"></a><span class="co">#---------------------------</span></span>
-<span id="cb30-18"><a href="#cb30-18"></a><span class="co"># identify seropositive by</span></span>
-<span id="cb30-19"><a href="#cb30-19"></a><span class="co"># SEA and Sm25 using ROC cutoff</span></span>
-<span id="cb30-20"><a href="#cb30-20"></a><span class="co"># these cutoffs were provided</span></span>
-<span id="cb30-21"><a href="#cb30-21"></a><span class="co"># by Kim Won in the file</span></span>
-<span id="cb30-22"><a href="#cb30-22"></a><span class="co"># Mbita cutoff table for Ben.xlsx</span></span>
-<span id="cb30-23"><a href="#cb30-23"></a><span class="co">#---------------------------</span></span>
-<span id="cb30-24"><a href="#cb30-24"></a>d2 &lt;-<span class="st"> </span>d2 <span class="op">%&gt;%</span></span>
-<span id="cb30-25"><a href="#cb30-25"></a><span class="st">  </span><span class="kw">mutate</span>(</span>
-<span id="cb30-26"><a href="#cb30-26"></a>    <span class="dt">arm =</span> <span class="kw">factor</span>(arm, <span class="dt">levels=</span><span class="kw">c</span>(<span class="st">&quot;CWT&quot;</span>,<span class="st">&quot;SBT&quot;</span>)),</span>
-<span id="cb30-27"><a href="#cb30-27"></a>    <span class="dt">sea_pos =</span> <span class="kw">ifelse</span>(sea<span class="op">&gt;</span><span class="dv">965</span>,<span class="dv">1</span>,<span class="dv">0</span>),</span>
-<span id="cb30-28"><a href="#cb30-28"></a>    <span class="dt">sm25_pos =</span> <span class="kw">ifelse</span>(sm25<span class="op">&gt;</span><span class="dv">38</span>,<span class="dv">1</span>,<span class="dv">0</span>),</span>
-<span id="cb30-29"><a href="#cb30-29"></a>    <span class="dt">kk_pos =</span> <span class="kw">ifelse</span>(sm_epg<span class="op">&gt;</span><span class="dv">0</span>,<span class="dv">1</span>,<span class="dv">0</span>)</span>
-<span id="cb30-30"><a href="#cb30-30"></a>  )</span>
-<span id="cb30-31"><a href="#cb30-31"></a></span>
-<span id="cb30-32"><a href="#cb30-32"></a></span>
-<span id="cb30-33"><a href="#cb30-33"></a>d_lonlat &lt;-<span class="st"> </span>d <span class="op">%&gt;%</span></span>
-<span id="cb30-34"><a href="#cb30-34"></a><span class="st">  </span>dplyr<span class="op">::</span><span class="kw">select</span>(vid,lon,lat) <span class="op">%&gt;%</span></span>
-<span id="cb30-35"><a href="#cb30-35"></a><span class="st">  </span><span class="kw">group_by</span>(vid) <span class="op">%&gt;%</span></span>
-<span id="cb30-36"><a href="#cb30-36"></a><span class="st">  </span><span class="kw">slice</span>(<span class="dv">1</span>)</span>
-<span id="cb30-37"><a href="#cb30-37"></a></span>
-<span id="cb30-38"><a href="#cb30-38"></a><span class="co"># save RDS files</span></span>
-<span id="cb30-39"><a href="#cb30-39"></a><span class="kw">saveRDS</span>(d2,<span class="dt">file=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_schisto.rds&quot;</span>))</span>
-<span id="cb30-40"><a href="#cb30-40"></a><span class="kw">saveRDS</span>(d_lonlat,<span class="dt">file=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_lonlat.rds&quot;</span>))</span>
-<span id="cb30-41"><a href="#cb30-41"></a></span>
-<span id="cb30-42"><a href="#cb30-42"></a><span class="co"># save CSV files</span></span>
-<span id="cb30-43"><a href="#cb30-43"></a><span class="kw">write_csv</span>(d2,<span class="dt">path=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_schisto.csv&quot;</span>))</span>
-<span id="cb30-44"><a href="#cb30-44"></a><span class="kw">write_csv</span>(d_lonlat,<span class="dt">path=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_lonlat.csv&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1"></a><span class="co">#---------------------------</span></span>
+<span id="cb29-2"><a href="#cb29-2"></a><span class="co"># Load the data</span></span>
+<span id="cb29-3"><a href="#cb29-3"></a><span class="co">#---------------------------</span></span>
+<span id="cb29-4"><a href="#cb29-4"></a>d &lt;-<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_psac.rds&quot;</span>))</span>
+<span id="cb29-5"><a href="#cb29-5"></a></span>
+<span id="cb29-6"><a href="#cb29-6"></a>d2 &lt;-<span class="st"> </span>d <span class="op">%&gt;%</span></span>
+<span id="cb29-7"><a href="#cb29-7"></a><span class="st">  </span>dplyr<span class="op">::</span><span class="kw">select</span>(year,vid,arm,pid,agey,sex,sea,sm25,sm_epg)</span>
+<span id="cb29-8"><a href="#cb29-8"></a></span>
+<span id="cb29-9"><a href="#cb29-9"></a><span class="co">#---------------------------</span></span>
+<span id="cb29-10"><a href="#cb29-10"></a><span class="co"># strip real ID info</span></span>
+<span id="cb29-11"><a href="#cb29-11"></a><span class="co">#---------------------------</span></span>
+<span id="cb29-12"><a href="#cb29-12"></a>d2 &lt;-<span class="st"> </span>d2 <span class="op">%&gt;%</span></span>
+<span id="cb29-13"><a href="#cb29-13"></a><span class="st">  </span><span class="kw">mutate</span>(<span class="dt">pid =</span> <span class="kw">row_number</span>(),</span>
+<span id="cb29-14"><a href="#cb29-14"></a>         <span class="dt">pid =</span> <span class="kw">as.character</span>(pid))</span>
+<span id="cb29-15"><a href="#cb29-15"></a></span>
+<span id="cb29-16"><a href="#cb29-16"></a></span>
+<span id="cb29-17"><a href="#cb29-17"></a><span class="co">#---------------------------</span></span>
+<span id="cb29-18"><a href="#cb29-18"></a><span class="co"># identify seropositive by</span></span>
+<span id="cb29-19"><a href="#cb29-19"></a><span class="co"># SEA and Sm25 using ROC cutoff</span></span>
+<span id="cb29-20"><a href="#cb29-20"></a><span class="co"># these cutoffs were provided</span></span>
+<span id="cb29-21"><a href="#cb29-21"></a><span class="co"># by Kim Won in the file</span></span>
+<span id="cb29-22"><a href="#cb29-22"></a><span class="co"># Mbita cutoff table for Ben.xlsx</span></span>
+<span id="cb29-23"><a href="#cb29-23"></a><span class="co">#---------------------------</span></span>
+<span id="cb29-24"><a href="#cb29-24"></a>d2 &lt;-<span class="st"> </span>d2 <span class="op">%&gt;%</span></span>
+<span id="cb29-25"><a href="#cb29-25"></a><span class="st">  </span><span class="kw">mutate</span>(</span>
+<span id="cb29-26"><a href="#cb29-26"></a>    <span class="dt">arm =</span> <span class="kw">factor</span>(arm, <span class="dt">levels=</span><span class="kw">c</span>(<span class="st">&quot;CWT&quot;</span>,<span class="st">&quot;SBT&quot;</span>)),</span>
+<span id="cb29-27"><a href="#cb29-27"></a>    <span class="dt">sea_pos =</span> <span class="kw">ifelse</span>(sea<span class="op">&gt;</span><span class="dv">965</span>,<span class="dv">1</span>,<span class="dv">0</span>),</span>
+<span id="cb29-28"><a href="#cb29-28"></a>    <span class="dt">sm25_pos =</span> <span class="kw">ifelse</span>(sm25<span class="op">&gt;</span><span class="dv">38</span>,<span class="dv">1</span>,<span class="dv">0</span>),</span>
+<span id="cb29-29"><a href="#cb29-29"></a>    <span class="dt">kk_pos =</span> <span class="kw">ifelse</span>(sm_epg<span class="op">&gt;</span><span class="dv">0</span>,<span class="dv">1</span>,<span class="dv">0</span>)</span>
+<span id="cb29-30"><a href="#cb29-30"></a>  )</span>
+<span id="cb29-31"><a href="#cb29-31"></a></span>
+<span id="cb29-32"><a href="#cb29-32"></a></span>
+<span id="cb29-33"><a href="#cb29-33"></a>d_lonlat &lt;-<span class="st"> </span>d <span class="op">%&gt;%</span></span>
+<span id="cb29-34"><a href="#cb29-34"></a><span class="st">  </span>dplyr<span class="op">::</span><span class="kw">select</span>(vid,lon,lat) <span class="op">%&gt;%</span></span>
+<span id="cb29-35"><a href="#cb29-35"></a><span class="st">  </span><span class="kw">group_by</span>(vid) <span class="op">%&gt;%</span></span>
+<span id="cb29-36"><a href="#cb29-36"></a><span class="st">  </span><span class="kw">slice</span>(<span class="dv">1</span>)</span>
+<span id="cb29-37"><a href="#cb29-37"></a></span>
+<span id="cb29-38"><a href="#cb29-38"></a><span class="co"># save RDS files</span></span>
+<span id="cb29-39"><a href="#cb29-39"></a><span class="kw">saveRDS</span>(d2,<span class="dt">file=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_schisto.rds&quot;</span>))</span>
+<span id="cb29-40"><a href="#cb29-40"></a><span class="kw">saveRDS</span>(d_lonlat,<span class="dt">file=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_lonlat.rds&quot;</span>))</span>
+<span id="cb29-41"><a href="#cb29-41"></a></span>
+<span id="cb29-42"><a href="#cb29-42"></a><span class="co"># save CSV files</span></span>
+<span id="cb29-43"><a href="#cb29-43"></a><span class="kw">write_csv</span>(d2,<span class="dt">path=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_schisto.csv&quot;</span>))</span>
+<span id="cb29-44"><a href="#cb29-44"></a><span class="kw">write_csv</span>(d_lonlat,<span class="dt">path=</span><span class="kw">here</span>(<span class="st">&quot;data&quot;</span>,<span class="st">&quot;mbita_lonlat.csv&quot;</span>))</span></code></pre></div>
 </div>
 <div id="summarize-data-frame" class="section level1">
 <h1>Summarize data frame</h1>
-<div class="sourceCode" id="cb31"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1"></a><span class="kw">summary</span>(d2)</span></code></pre></div>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1"></a><span class="kw">summary</span>(d2)</span></code></pre></div>
 <pre><code>##       year           vid         arm           pid                 agey       
 ##  Min.   :2012   Min.   : 1.00   CWT:1826   Length:3663        Min.   :0.2108  
 ##  1st Qu.:2012   1st Qu.: 7.00   SBT:1837   Class :character   1st Qu.:2.4312  
@@ -1720,14 +1735,14 @@ div.tocify {
 </div>
 <div id="session-info" class="section level1">
 <h1>Session Info</h1>
-<div class="sourceCode" id="cb33"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1"></a><span class="kw">sessionInfo</span>()</span></code></pre></div>
-<pre><code>## R version 3.6.1 (2019-07-05)
-## Platform: x86_64-apple-darwin15.6.0 (64-bit)
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1"></a><span class="kw">sessionInfo</span>()</span></code></pre></div>
+<pre><code>## R version 4.0.2 (2020-06-22)
+## Platform: x86_64-apple-darwin17.0 (64-bit)
 ## Running under: macOS Mojave 10.14.6
 ## 
 ## Matrix products: default
-## BLAS:   /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRblas.0.dylib
-## LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+## BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+## LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
 ## 
 ## locale:
 ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
@@ -1737,32 +1752,31 @@ div.tocify {
 ## [8] methods   base     
 ## 
 ## other attached packages:
-##  [1] doParallel_1.0.15  iterators_1.0.12   foreach_1.4.7      mgcv_1.8-28       
-##  [5] nlme_3.1-140       leaflet_2.0.2      raster_3.0-2       sf_0.9-3          
-##  [9] sp_1.3-1           kableExtra_1.1.0   gridExtra_2.3      ellipse_0.4.1     
-## [13] viridisLite_0.3.0  RColorBrewer_1.1-2 scales_1.1.0       forcats_0.4.0     
-## [17] stringr_1.4.0      dplyr_0.8.3        purrr_0.3.3        readr_1.3.1       
-## [21] tidyr_1.0.0        tibble_2.1.3       ggplot2_3.2.1      tidyverse_1.3.0   
+##  [1] doParallel_1.0.15  iterators_1.0.12   foreach_1.5.0      mgcv_1.8-31       
+##  [5] nlme_3.1-148       leaflet_2.0.3      raster_3.3-13      sf_0.9-5          
+##  [9] sp_1.4-2           kableExtra_1.1.0   gridExtra_2.3      ellipse_0.4.2     
+## [13] viridisLite_0.3.0  RColorBrewer_1.1-2 scales_1.1.1       forcats_0.5.0     
+## [17] stringr_1.4.0      dplyr_1.0.0        purrr_0.3.4        readr_1.3.1       
+## [21] tidyr_1.1.0        tibble_3.0.3       ggplot2_3.3.2      tidyverse_1.3.0   
 ## [25] here_0.1          
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] fs_1.3.1           lubridate_1.7.4    webshot_0.5.1      httr_1.4.1        
-##  [5] rprojroot_1.3-2    tools_3.6.1        backports_1.1.5    R6_2.4.1          
-##  [9] KernSmooth_2.23-15 DBI_1.0.0          lazyeval_0.2.2     colorspace_1.4-1  
-## [13] withr_2.1.2        tidyselect_0.2.5   compiler_3.6.1     cli_2.0.0         
-## [17] rvest_0.3.5        xml2_1.2.2         classInt_0.4-1     digest_0.6.23     
-## [21] rmarkdown_2.0      pkgconfig_2.0.3    htmltools_0.4.0    dbplyr_1.4.2      
-## [25] htmlwidgets_1.5.1  rlang_0.4.2        readxl_1.3.1       rstudioapi_0.10   
-## [29] shiny_1.3.2        generics_0.0.2     jsonlite_1.6       crosstalk_1.0.0   
-## [33] magrittr_1.5       Matrix_1.2-17      Rcpp_1.0.3         munsell_0.5.0     
-## [37] fansi_0.4.0        lifecycle_0.1.0    stringi_1.4.3      yaml_2.2.0        
-## [41] promises_1.0.1     crayon_1.3.4       lattice_0.20-38    haven_2.2.0       
-## [45] splines_3.6.1      hms_0.5.2          zeallot_0.1.0      knitr_1.26        
-## [49] pillar_1.4.2       codetools_0.2-16   reprex_0.3.0       glue_1.3.1        
-## [53] evaluate_0.14      modelr_0.1.5       vctrs_0.2.0        httpuv_1.5.1      
-## [57] cellranger_1.1.0   gtable_0.3.0       assertthat_0.2.1   xfun_0.11         
-## [61] mime_0.7           xtable_1.8-4       broom_0.5.2        e1071_1.7-2       
-## [65] later_0.8.0        class_7.3-15       units_0.6-4</code></pre>
+##  [1] httr_1.4.2         jsonlite_1.7.0     splines_4.0.2      modelr_0.1.8      
+##  [5] assertthat_0.2.1   blob_1.2.1         cellranger_1.1.0   yaml_2.2.1        
+##  [9] pillar_1.4.6       backports_1.1.8    lattice_0.20-41    glue_1.4.1        
+## [13] digest_0.6.25      rvest_0.3.5        colorspace_1.4-1   htmltools_0.5.0   
+## [17] Matrix_1.2-18      pkgconfig_2.0.3    broom_0.7.0        haven_2.3.1       
+## [21] webshot_0.5.2      generics_0.0.2     ellipsis_0.3.1     withr_2.2.0       
+## [25] cli_2.0.2          magrittr_1.5       crayon_1.3.4       readxl_1.3.1      
+## [29] evaluate_0.14      fs_1.4.2           fansi_0.4.1        xml2_1.3.2        
+## [33] class_7.3-17       tools_4.0.2        hms_0.5.3          lifecycle_0.2.0   
+## [37] munsell_0.5.0      reprex_0.3.0       compiler_4.0.2     e1071_1.7-3       
+## [41] rlang_0.4.7        classInt_0.4-3     units_0.6-7        rstudioapi_0.11   
+## [45] htmlwidgets_1.5.1  crosstalk_1.1.0.1  rmarkdown_2.3      codetools_0.2-16  
+## [49] gtable_0.3.0       DBI_1.1.0          R6_2.4.1           lubridate_1.7.9   
+## [53] knitr_1.29         rprojroot_1.3-2    KernSmooth_2.23-17 stringi_1.4.6     
+## [57] Rcpp_1.0.5         vctrs_0.3.2        dbplyr_1.4.4       tidyselect_1.1.0  
+## [61] xfun_0.15</code></pre>
 </div>
 
 
@@ -1815,7 +1829,7 @@ $(document).ready(function ()  {
       theme: "bootstrap3",
       context: '.toc-content',
       hashGenerator: function (text) {
-        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_').toLowerCase();
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
       },
       ignoreSelector: ".toc-ignore",
       scrollTo: 0
