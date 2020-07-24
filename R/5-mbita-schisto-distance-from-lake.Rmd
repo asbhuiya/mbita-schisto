@@ -83,7 +83,8 @@ d2 <- d2 %>%
 # mbita-schisto-SEA-vs_KK.Rmd
 #-----------------------------------
 d_foi <- readRDS(here("output","mbita-village-foi.rds")) %>%
-  rename(lambda = mufoi, lambda_se = mufoi_se, lambda_lb = mufoi_lb, lambda_ub = mufoi_ub)
+  rename(lambda = mufoi, lambda_se = mufoi_se, lambda_lb = mufoi_lb, lambda_ub = mufoi_ub) %>%
+  mutate(vid = factor(vid))
 
 #-----------------------------------
 # create a village-level summary
