@@ -1,9 +1,28 @@
-FROM rocker/verse:3.6.3
+FROM rocker/binder:3.6.3
 LABEL maintainer='Ben Arnold'
 USER root
 COPY . ${HOME}
 RUN chown -R ${NB_USER} ${HOME}
 USER ${NB_USER}
+
+
+## Copies your repo files into the Docker Container
+USER root
+COPY . ${HOME}
+## Enable this to copy files from the binder subdirectory
+## to the home, overriding any existing files.
+## Useful to create a setup on binder that is different from a
+## clone of your repository
+## COPY binder ${HOME}
+RUN chown -R ${NB_USER} ${HOME}
+
+## Become normal user again
+USER ${NB_USER}
+
+## Run an install.R script, if it exists.
+RUN if [ -f install.R ]; then R --quiet -f install.R; fi
+
+
 
 ## from rocker/geospatial
 RUN apt-get update \
@@ -33,33 +52,6 @@ RUN apt-get update \
     tk-dev \
     unixodbc-dev
 
-RUN install2.r --error \
-    RColorBrewer \
-    RandomFields \
-    RNetCDF \
-    classInt \
-    deldir \
-    gstat \
-    hdf5r \
-    lidR \
-    mapdata \
-    maptools \
-    mapview \
-    ncdf4 \
-    proj4 \
-    raster \
-    rgdal \
-    rgeos \
-    rlas \
-    sf \
-    sp \
-    spacetime \
-    spatstat \
-    spdep \
-    geoR \
-    geosphere \
-    ## from bioconductor
-    && R -e "BiocManager::install('rhdf5', update=FALSE, ask=FALSE)"
 
 RUN wget https://github.com/ben-arnold/mbita-schisto/raw/master/DESCRIPTION && R -e "options(repos = list(CRAN = 'http://mran.revolutionanalytics.com/snapshot/2020-07-24/')); devtools::install_deps()"
 
