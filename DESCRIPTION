@@ -1,0 +1,19 @@
+
+
+
+Type: Compendium
+Package: mbita-schisto
+Title: Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response
+Version: 1
+Authors@R: 
+    person(given = "Ben",
+           family = "Arnold",
+           role = c("aut", "cre"),
+           email = "ben.arnold@ucsf.edu",
+           comment = c(ORCiD = "0000-0001-6105-7295"))
+Description: Full replication files for the analyses in the article entitled Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response
+License: CC0-1.0
+Depends: 
+    doParallel,    dplyr,         ellipse,         foreach,         grid,         gridExtra,    here,       holepunch,    kableExtra,      knitr,      leaflet,         MASS,         mgcv,            raster,          RColorBrewer,    rmarkdown,    scales,       sf,          sp,              tidyverse,    viridisLite
+Encoding: UTF-8
+LazyData: true
