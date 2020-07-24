@@ -69,7 +69,8 @@ dvil <- d3 %>%
   summarize(sea_n = sum(sea_pos,na.rm=T),
             sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
             kk_n = sum(kk_pos,na.rm=T),
-            kk_N = sum(ifelse(!is.na(kk_pos),1,0))
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            .groups = "keep"
             ) %>%
   mutate(sea_prev = sea_n/sea_N,
          kk_prev = kk_n/kk_N,
@@ -81,7 +82,8 @@ dvil2 <- d3 %>%
   summarize(sea_n = sum(sea_pos,na.rm=T),
             sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
             kk_n = sum(kk_pos,na.rm=T),
-            kk_N = sum(ifelse(!is.na(kk_pos),1,0))
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            .groups = "keep"
             ) %>%
   mutate(sea_prev = sea_n/sea_N,
          kk_prev = kk_n/kk_N)
@@ -109,7 +111,8 @@ dtab_yr <- d3 %>%
   summarize(ndbs = sum(!is.na(sea_pos)),
             seapos = sum(sea_pos),
             nkk = sum(!is.na(kk_pos)),
-            kkpos = sum(kk_pos, na.rm =TRUE)) %>%
+            kkpos = sum(kk_pos, na.rm =TRUE),
+            .groups = "keep") %>%
   mutate(seaprev = sprintf("%1.0f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.0f", kkpos/nkk * 100),
          desc = as.character(year)
@@ -123,7 +126,8 @@ dtab_age <- d3 %>%
   summarize(ndbs = sum(!is.na(sea_pos)),
             seapos = sum(sea_pos),
             nkk = sum(!is.na(kk_pos)),
-            kkpos = sum(kk_pos, na.rm =TRUE)) %>%
+            kkpos = sum(kk_pos, na.rm =TRUE),
+            .groups = "keep") %>%
   mutate(seaprev = sprintf("%1.0f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.0f", kkpos/nkk * 100),
          desc = as.character(agecat)
@@ -136,7 +140,8 @@ dtab_tot <- d3 %>%
   summarize(ndbs = sum(!is.na(sea_pos)),
             seapos = sum(sea_pos),
             nkk = sum(!is.na(kk_pos)),
-            kkpos = sum(kk_pos, na.rm =TRUE)) %>%
+            kkpos = sum(kk_pos, na.rm =TRUE),
+            .groups = "keep") %>%
   mutate(seaprev = sprintf("%1.0f", seapos / ndbs * 100),
          kkprev =  sprintf("%1.0f", kkpos/nkk * 100),
          desc = "Overall"
