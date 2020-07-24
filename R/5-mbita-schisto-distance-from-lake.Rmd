@@ -96,7 +96,8 @@ dvil <- d2 %>%
   summarize(sea_n = sum(sea_pos,na.rm=T),
             sea_N = sum(ifelse(!is.na(sea_pos),1,0)),
             kk_n = sum(kk_pos,na.rm=T),
-            kk_N = sum(ifelse(!is.na(kk_pos),1,0))
+            kk_N = sum(ifelse(!is.na(kk_pos),1,0)),
+            .groups = "keep"
             ) %>%
   mutate(sea_prev = sea_n/sea_N,
          kk_prev = kk_n/kk_N)
@@ -160,7 +161,8 @@ d_agest <- d_agest %>%
 dvil_std <- d_agest %>%
   group_by(vid) %>%
   summarize(sea_prev_gam = mean(sea_pred),
-            kk_prev_gam = mean(kk_pred)
+            kk_prev_gam = mean(kk_pred),
+            .groups = "keep"
             ) 
 
 #------------------------------
@@ -540,7 +542,8 @@ As a comparison, we also estimated the proportion of positivies identified by ra
 
 ```{r cumulative kk cases by distance}
 dkkcum <- dvil3 %>%
-  dplyr::select(vid, dist_victoria, kk_N, kk_n, kk_prev) 
+  dplyr::select(vid, dist_victoria, kk_N, kk_n, kk_prev) %>%
+  ungroup()
 
 dkkdist <- dkkcum %>%
   arrange(dist_victoria) %>%
@@ -584,7 +587,8 @@ dkkcumd <- bind_rows(dkkdist,dkkprev,dkkn) %>%
 
 ```{r cumulative sea positive by distance}
 dseacum <- dvil3 %>%
-  dplyr::select(vid, dist_victoria, sea_N, sea_n, sea_prev) 
+  dplyr::select(vid, dist_victoria, sea_N, sea_n, sea_prev) %>%
+  ungroup()
 
 dseadist <- dseacum %>%
   arrange(dist_victoria) %>%
