@@ -7,9 +7,9 @@ Fine-scale heterogeneity in Schistosoma mansoni force of infection measured thro
 
 ## Description
 
-This repository includes data and replication files to reproduce the analyses in the manuscript entitled _Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response_
+This repository includes data and replication files to reproduce the analyses in the manuscript:
 
-A preprint of the manuscript has been published on _medRxiv_: https://www.medrxiv.org/content/10.1101/2020.04.10.20061101v1 
+Arnold, B. F., Kanyi, H., Njenga, S. M., Rawago, F. O., Priest, J. W., Secor, W. E., Lammie, P. J., Won, K. Y. & Odiere, M. R. Fine-scale heterogeneity in Schistosoma mansoni force of infection measured through antibody response. _Proceedings of the National Academy of Sciences, U.S.A_ (2020). https://www.pnas.org/cgi/doi/10.1073/pnas.2008951117
 
 The materials in this repo are cross-linked with the Open Science Framework repository: 
 https://doi.org/10.17605/OSF.IO/RNME8
